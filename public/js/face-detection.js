@@ -427,20 +427,20 @@ async function captureAndVerify() {
 
 // Show Bootstrap alert modal with retry option
 function showAlert(title, message, addRetryButton = false) {
-  const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+  const alertModalElement = document.getElementById('alertModal');
+  const alertModal = bootstrap.Modal.getInstance(alertModalElement) || new bootstrap.Modal(alertModalElement);
   document.getElementById('alertModalTitle').textContent = title;
   document.getElementById('alertModalBody').textContent = message;
   
   // Add retry button if requested
-  const modalFooter = document.querySelector('#alertModal .modal-footer');
+  const modalFooter = alertModalElement.querySelector('.modal-footer');
   
-  // First, remove any existing retry button
+  // Remove any existing retry button
   const existingRetryBtn = document.getElementById('retry-face-detection');
   if (existingRetryBtn) {
     existingRetryBtn.remove();
   }
   
-  // Add retry button if needed
   if (addRetryButton) {
     const retryButton = document.createElement('button');
     retryButton.id = 'retry-face-detection';
@@ -458,6 +458,7 @@ function showAlert(title, message, addRetryButton = false) {
 
 // Retry face detection
 function retryFaceDetection() {
+  console.log('Retry face detection triggered');
   // Reset state
   faceCaptured = false;
   faceDetected = false;
