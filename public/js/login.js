@@ -6,7 +6,7 @@ const toggleLoginLink = document.getElementById('toggle-login');
 const loginFormContainer = document.getElementById('login-form');
 const registerFormContainer = document.getElementById('register-form');
 
-// Check if user is already logged in
+// apakah user sudah login?
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Toggle between login and register forms
+// peralihan antara form login dan register
 function toggleForms() {
   if (loginFormContainer.classList.contains('d-none')) {
     loginFormContainer.classList.remove('d-none');
@@ -25,7 +25,7 @@ function toggleForms() {
   }
 }
 
-// Login functionality
+// fungsi untuk menangani login
 async function loginUser(username, password) {
   try {
     const response = await fetch('/api/auth/login', {
@@ -36,7 +36,7 @@ async function loginUser(username, password) {
       body: JSON.stringify({
         username,
         password,
-        faceDetected: true, // We've already verified face detection
+        faceDetected: true, 
       }),
     });
 
@@ -46,7 +46,7 @@ async function loginUser(username, password) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // Redirect to dashboard
+      // mengarahkan ke dashboard
       window.location.href = '/dashboard';
     } else {
       showAlert('Login Failed', data.message || 'Invalid credentials');
@@ -57,7 +57,7 @@ async function loginUser(username, password) {
   }
 }
 
-// Register functionality
+// fungsi untuk menangani registrasi
 async function registerUser(userData) {
   try {
     const response = await fetch('/api/auth/register', {
@@ -74,7 +74,7 @@ async function registerUser(userData) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // Redirect to dashboard
+      // mengarahkan ke dashboard
       window.location.href = '/dashboard';
     } else {
       showAlert('Registration Failed', data.message || 'Failed to create account');
@@ -95,7 +95,7 @@ function showAlert(title, message) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Login form submission
+  // pengisian login form
   authForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const username = document.getElementById('username').value;
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginUser(username, password);
   });
 
-  // Register form submission
+  // pengisian register form
   registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const userData = {
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     registerUser(userData);
   });
 
-  // Toggle between login and register forms
+  //peralihan antara form login dan register
   toggleRegisterLink.addEventListener('click', (e) => {
     e.preventDefault();
     toggleForms();

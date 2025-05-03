@@ -58,7 +58,7 @@ const loginHistorySchema = new mongoose.Schema(
   }
 );
 
-// Hash password before saving
+// hashing
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) {
     return next();
@@ -69,7 +69,7 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
-// Match password method
+// match
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
