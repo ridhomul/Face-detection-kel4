@@ -21,12 +21,15 @@ body {
   text-align: center;
 }
 
+/* Webcam container styling - positioned in center */
 .webcam-container {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin-bottom: 15px;
+  margin: 0 auto;
+  max-width: 400px;
+  width: 100%;
 }
 
 #video {
@@ -48,6 +51,7 @@ body {
   min-height: 24px;
   text-align: center;
   transition: all 0.3s ease;
+  margin-bottom: 15px;
 }
 
 .status-success {
@@ -80,6 +84,8 @@ body {
 
 .login-form, .register-form {
   padding: 15px;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 #capture-btn {
@@ -91,14 +97,27 @@ body {
   padding: 10px 20px;
   border-radius: 25px;
   transition: background 0.3s ease;
+  display: block;
+  margin: 15px auto;
+  width: 200px;
 }
 
 #capture-btn:hover {
   background: linear-gradient(to right, #00c9ff, #92fe9d);
 }
 
+/* Center webcam container in the form */
+.centered-webcam-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+/* Responsive adjustments */
 @media (max-width: 767px) {
-  .col-md-6 {
+  .centered-webcam-container {
     margin-bottom: 20px;
   }
 }
@@ -125,4 +144,13 @@ body {
   background-color: #f1f3f5;
   border-radius: 6px;
   border-left: 4px solid #0d6efd;
+}
+
+/* Modal overrides */
+.modal-footer {
+  justify-content: space-between;
+}
+
+#retry-face-detection {
+  margin-right: 10px;
 }

@@ -17,64 +17,61 @@
             <h2 class="text-center mb-0">Face Detection Login</h2>
           </div>
           <div class="card-body">
-            <div class="row">
-              <div class="col-md-6">
-                <div class="webcam-container">
-                  <video id="video" width="100%" height="auto" autoplay muted></video>
-                  <canvas id="canvas" class="d-none"></canvas>
-                  <div id="face-status" class="mt-2 text-center">Waiting for camera access...</div>
-                </div>
-                <div class="text-center mt-3">
-                  <button id="capture-btn" class="btn btn-info" disabled>Capture & Verify Face</button>
-                </div>
+            <div class="centered-webcam-container">
+              <div class="webcam-container">
+                <video id="video" width="100%" height="auto" autoplay muted></video>
+                <canvas id="canvas" class="d-none"></canvas>
               </div>
-              <div class="col-md-6">
-                <div id="login-form" class="login-form d-none">
-                  <h4 class="text-center mb-4">Enter Your Credentials</h4>
-                  <form id="auth-form">
-                    <div class="mb-3">
-                      <label for="username" class="form-label">Username</label>
-                      <input type="text" class="form-control" id="username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                      <label for="password" class="form-label">Password</label>
-                      <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <div class="d-grid gap-2">
-                      <button type="submit" class="btn btn-primary">Login</button>
-                    </div>
-                  </form>
-                  <div class="text-center mt-3">
-                    <p>Don't have an account? <a href="#" id="toggle-register">Register</a></p>
-                  </div>
+              <div id="face-status" class="mt-2 text-center">Waiting for camera access...</div>
+            </div>
+            
+            <!-- Login Form -->
+            <div id="login-form" class="login-form d-none">
+              <h4 class="text-center mb-4">Enter Your Credentials</h4>
+              <form id="auth-form">
+                <div class="mb-3">
+                  <label for="username" class="form-label">Username</label>
+                  <input type="text" class="form-control" id="username" name="username" required>
                 </div>
-                <div id="register-form" class="register-form d-none">
-                  <h4 class="text-center mb-4">Create an Account</h4>
-                  <form id="register-form-data">
-                    <div class="mb-3">
-                      <label for="reg-name" class="form-label">Full Name</label>
-                      <input type="text" class="form-control" id="reg-name" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                      <label for="reg-email" class="form-label">Email</label>
-                      <input type="email" class="form-control" id="reg-email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                      <label for="reg-username" class="form-label">Username</label>
-                      <input type="text" class="form-control" id="reg-username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                      <label for="reg-password" class="form-label">Password</label>
-                      <input type="password" class="form-control" id="reg-password" name="password" required>
-                    </div>
-                    <div class="d-grid gap-2">
-                      <button type="submit" class="btn btn-success">Register</button>
-                    </div>
-                  </form>
-                  <div class="text-center mt-3">
-                    <p>Already have an account? <a href="#" id="toggle-login">Login</a></p>
-                  </div>
+                <div class="mb-3">
+                  <label for="password" class="form-label">Password</label>
+                  <input type="password" class="form-control" id="password" name="password" required>
                 </div>
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-primary">Login</button>
+                </div>
+              </form>
+              <div class="text-center mt-3">
+                <p>Don't have an account? <a href="#" id="toggle-register">Register</a></p>
+              </div>
+            </div>
+            
+            <!-- Register Form -->
+            <div id="register-form" class="register-form d-none">
+              <h4 class="text-center mb-4">Create an Account</h4>
+              <form id="register-form-data">
+                <div class="mb-3">
+                  <label for="reg-name" class="form-label">Full Name</label>
+                  <input type="text" class="form-control" id="reg-name" name="name" required>
+                </div>
+                <div class="mb-3">
+                  <label for="reg-email" class="form-label">Email</label>
+                  <input type="email" class="form-control" id="reg-email" name="email" required>
+                </div>
+                <div class="mb-3">
+                  <label for="reg-username" class="form-label">Username</label>
+                  <input type="text" class="form-control" id="reg-username" name="username" required>
+                </div>
+                <div class="mb-3">
+                  <label for="reg-password" class="form-label">Password</label>
+                  <input type="password" class="form-control" id="reg-password" name="password" required>
+                </div>
+                <div class="d-grid gap-2">
+                  <button type="submit" class="btn btn-success">Register</button>
+                </div>
+              </form>
+              <div class="text-center mt-3">
+                <p>Already have an account? <a href="#" id="toggle-login">Login</a></p>
               </div>
             </div>
           </div>
@@ -95,6 +92,7 @@
           Message goes here
         </div>
         <div class="modal-footer">
+          <!-- Retry button will be inserted here by JS -->
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>

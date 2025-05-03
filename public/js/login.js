@@ -88,8 +88,8 @@ async function registerUser(userData) {
 // Helper function to show alert
 function showAlert(title, message) {
   const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
-  document.getElementById('alertModalTitle').textContent = title;
-  document.getElementById('alertModalBody').textContent = message;
+  // document.getElementById('alertModalTitle').textContent = title;
+  // document.getElementById('alertModalBody').textContent = message;
   alertModal.show();
 }
 
