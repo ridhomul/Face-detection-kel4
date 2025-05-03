@@ -56,7 +56,6 @@ exports.loginUser = async (req, res) => {
     const loginRecord = {
       userId: user ? user._id : null,
       success: false,
-      ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       faceDetected: faceDetected || false,
     };

@@ -45,9 +45,6 @@ const loginHistorySchema = new mongoose.Schema(
       type: Boolean,
       required: true,
     },
-    ipAddress: {
-      type: String,
-    },
     userAgent: {
       type: String,
     },

@@ -184,7 +184,7 @@ async function captureAndVerify() {
     faceStatus.textContent = 'Face detected successfully';
     faceStatus.className = 'mt-2 text-center status-success';
     
-    // Wait for 1.5 seconds to show success message before hiding webcam
+    // Wait for 3 seconds to show success message before hiding webcam
     setTimeout(() => {
       // Hide webcam container and show login form
       webcamContainer.style.display = 'none';
