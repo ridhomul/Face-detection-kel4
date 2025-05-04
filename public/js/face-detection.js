@@ -14,7 +14,6 @@ let modelsLoaded = false;
 let faceDetected = false;
 let faceCaptured = false;
 let noFaceTimeout = null;
-let verificationFailedTimeout = null;
 
 /**
  * Screen navigation function
@@ -50,7 +49,6 @@ async function initialize() {
   } catch (error) {
     console.error('Initialization error:', error);
     updateStatus('Error initializing: ' + error.message, 'error');
-    schedulePageRefresh();
   }
 }
 
@@ -173,28 +171,45 @@ function startFaceDetection() {
     return;
   }
 
+  // Clear any existing interval to prevent duplicates
   if (faceDetectionInterval) {
     clearInterval(faceDetectionInterval);
+    faceDetectionInterval = null;
   }
 
+  console.log('Starting face detection loop');
   faceDetectionInterval = setInterval(async () => {
     if (video && !video.paused && !video.ended && !faceCaptured) {
       try {
+        // Get current video dimensions
+        const displaySize = { width: video.videoWidth, height: video.videoHeight };
+        
+        // Make sure canvas matches video dimensions
+        if (canvas.width !== displaySize.width || canvas.height !== displaySize.height) {
+          canvas.width = displaySize.width;
+          canvas.height = displaySize.height;
+        }
+        
         const detections = await faceapi.detectAllFaces(
           video,
           new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
         ).withFaceLandmarks(true);
 
         const ctx = canvas.getContext('2d');
+        // Clear canvas before drawing new frame
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // First draw video frame to canvas to ensure proper alignment
+        // Only needed if we want to "freeze" the frame in the canvas
+        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         if (detections.length > 0) {
           canvas.classList.remove('d-none');
-          const resizedResults = faceapi.resizeResults(detections, {
-            width: canvas.width,
-            height: canvas.height
-          });
+          
+          // Ensure proper size matching between video and canvas
+          const resizedResults = faceapi.resizeResults(detections, displaySize);
 
+          // Draw face detection boxes
           resizedResults.forEach(result => {
             const { x, y, width, height } = result.detection.box;
             ctx.strokeStyle = '#00ff00';
@@ -202,17 +217,28 @@ function startFaceDetection() {
             ctx.strokeRect(x, y, width, height);
           });
 
+          // Draw face landmarks (dots and lines for eyes, nose, mouth, etc.)
           faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
 
           updateStatus('Face detected', 'success');
           faceDetected = true;
           
-          // Auto-capture the face after detection
+          // Don't auto-capture immediately - wait for user to stabilize
+          // Add a small delay to avoid constant capturing attempts
           if (faceDetected && !faceCaptured) {
-            captureAndVerify();
+            if (!window.captureTimeout) {
+              window.captureTimeout = setTimeout(() => {
+                captureAndVerify();
+                window.captureTimeout = null;
+              }, 1000); // Wait 1 second after face is stable
+            }
           }
         } else {
-          canvas.classList.add('d-none');
+          if (window.captureTimeout) {
+            clearTimeout(window.captureTimeout);
+            window.captureTimeout = null;
+          }
+          // Just clear the box and landmarks when no face is detected
           updateStatus('No face detected', 'error');
           faceDetected = false;
         }
@@ -221,7 +247,7 @@ function startFaceDetection() {
         updateStatus('Detection error', 'error');
       }
     }
-  }, 100);
+  }, 100); // Run detection every 100ms for smoother tracking
 }
 
 /**
@@ -235,9 +261,8 @@ function startNoFaceTimer() {
       }
       showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
       updateStatus('Timed out waiting for face', 'error');
-      schedulePageRefresh();
     }
-  }, 10000); // Increased from 7s to 10s for better user experience
+  }, 15000); // Increased to 15s to give users more time
 }
 
 /**
@@ -249,8 +274,16 @@ async function captureAndVerify() {
   }
 
   try {
+    // Temporarily pause detection while verifying
+    if (faceDetectionInterval) {
+      clearInterval(faceDetectionInterval);
+      faceDetectionInterval = null;
+    }
+    
     if (canvas && video) {
       const ctx = canvas.getContext('2d');
+      // Clear canvas and redraw video frame
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
       const detections = await faceapi.detectAllFaces(
@@ -260,17 +293,34 @@ async function captureAndVerify() {
   
       if (detections.length === 0) {
         updateStatus('Face verification failed. Please try again.', 'error');
-        showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
-        schedulePageRefresh();
+        showAlert('Verification Failed', 'Face verification failed. Please try again.', 'error', true);
+        if (!faceDetectionInterval) {
+          startFaceDetection(); // Resume detection if verification fails
+        }
         return false;
       }
   
       if (detections.length > 1) {
         updateStatus('Multiple faces detected. Please ensure only your face is visible.', 'error');
-        showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', 'error', false);
-        schedulePageRefresh();
+        showAlert('Multiple Faces', 'Multiple faces detected. Please ensure only your face is visible.', 'error', true);
+        if (!faceDetectionInterval) {
+          startFaceDetection(); // Resume detection if verification fails
+        }
         return false;
       }
+      
+      // Redraw detection overlay for captured image
+      const displaySize = { width: canvas.width, height: canvas.height };
+      const resizedResults = faceapi.resizeResults(detections, displaySize);
+      
+      // Draw detection box
+      const { x, y, width, height } = resizedResults[0].detection.box;
+      ctx.strokeStyle = '#00ff00';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, width, height);
+      
+      // Draw landmarks
+      faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
     }
 
     // Successfully captured face
@@ -292,8 +342,7 @@ async function captureAndVerify() {
     return true;
   } catch (error) {
     console.error('Capture error:', error);
-    showAlert('Error', 'Face verification failed: ' + error.message, 'error', false);
-    schedulePageRefresh();
+    showAlert('Error', 'Face verification failed: ' + error.message, 'error', true);
     return false;
   }
 }
@@ -308,6 +357,12 @@ async function captureAndVerify() {
 function showAlert(title, message, type = 'info', showRetry = false) {
   const alertModalElement = document.getElementById('alertModal');
   if (!alertModalElement) return;
+  
+  // Handle any existing modal first
+  const existingModal = bootstrap.Modal.getInstance(alertModalElement);
+  if (existingModal) {
+    existingModal.dispose();
+  }
   
   const alertModal = new bootstrap.Modal(alertModalElement);
   document.getElementById('alertModalTitle').textContent = title;
@@ -339,38 +394,36 @@ function showAlert(title, message, type = 'info', showRetry = false) {
   // Show/hide retry button based on parameter
   const retryButton = document.getElementById('retry-face-detection');
   if (retryButton) {
+    // Remove any existing event listeners first
+    const newRetryButton = retryButton.cloneNode(true);
+    retryButton.parentNode.replaceChild(newRetryButton, retryButton);
+    
     if (showRetry) {
-      retryButton.classList.remove('d-none');
+      newRetryButton.classList.remove('d-none');
       
       // Add event listener to retry button if showing it
-      retryButton.addEventListener('click', function() {
+      newRetryButton.addEventListener('click', function() {
         alertModal.hide();
         retryFaceDetection();
       });
     } else {
-      retryButton.classList.add('d-none');
+      newRetryButton.classList.add('d-none');
     }
   }
   
-  alertModal.show();
-}
-
-/**
- * Schedule page refresh after failure
- */
-function schedulePageRefresh() {
-  // Clear any existing timeouts first
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
+  // Pause detection while modal is shown
+  if (faceDetectionInterval) {
+    clearInterval(faceDetectionInterval);
   }
   
-  // Show message about refreshing page
-  updateStatus('Verification failed. Page will refresh automatically...', 'error');
+  // Resume detection when modal is hidden
+  alertModalElement.addEventListener('hidden.bs.modal', function() {
+    if (!faceCaptured) {
+      startFaceDetection();
+    }
+  }, { once: true });
   
-  verificationFailedTimeout = setTimeout(() => {
-    console.log('Auto-refreshing page due to face verification failure');
-    window.location.reload();
-  }, 5000); // Increased from 3s to 5s to give users more time to read the message
+  alertModal.show();
 }
 
 /**
@@ -384,12 +437,15 @@ function retryFaceDetection() {
   
   if (faceDetectionInterval) {
     clearInterval(faceDetectionInterval);
+    faceDetectionInterval = null;
   }
   if (noFaceTimeout) {
     clearTimeout(noFaceTimeout);
+    noFaceTimeout = null;
   }
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
+  if (window.captureTimeout) {
+    clearTimeout(window.captureTimeout);
+    window.captureTimeout = null;
   }
   
   stopCamera();
@@ -399,8 +455,16 @@ function retryFaceDetection() {
   if (captureBtn) captureBtn.style.display = '';
   if (loginForm) loginForm.classList.add('d-none');
   
+  // Clear canvas
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  
   // Restart initialization
-  initialize();
+  setTimeout(() => {
+    initialize();
+  }, 500); // Small delay to ensure camera is properly stopped
 }
 
 // Clean up on unload
@@ -411,8 +475,8 @@ window.addEventListener('beforeunload', () => {
   if (noFaceTimeout) {
     clearTimeout(noFaceTimeout);
   }
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
+  if (window.captureTimeout) {
+    clearTimeout(window.captureTimeout);
   }
   stopCamera();
 });
