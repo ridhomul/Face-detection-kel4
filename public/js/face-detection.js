@@ -11,9 +11,55 @@ let modelsLoaded = false;
 let faceDetected = false;
 let faceCaptured = false;
 let noFaceTimeout = null;
-let verificationFailedTimeout = null;
 
-// inisialisasi variabel
+// Initialize modal
+let alertModal;
+document.addEventListener('DOMContentLoaded', () => {
+  alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+});
+
+// Function to show alerts
+function showAlert(title, message, showRetryButton = false) {
+  document.getElementById('alertModalTitle').textContent = title;
+  document.getElementById('modal-message').textContent = message;
+  
+  // Set icon based on alert type
+  const iconElement = document.getElementById('modal-icon');
+  let iconHTML = '';
+  
+  if (title.toLowerCase().includes('success')) {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#2ecc71" stroke-width="5" />
+      <path d="M30,50 L45,65 L70,35" stroke="#2ecc71" stroke-width="8" fill="none" />
+    </svg>`;
+  } else if (title.toLowerCase().includes('error') || title.toLowerCase().includes('failed')) {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#e74c3c" stroke-width="5" />
+      <line x1="35" y1="35" x2="65" y2="65" stroke="#e74c3c" stroke-width="8" />
+      <line x1="35" y1="65" x2="65" y2="35" stroke="#e74c3c" stroke-width="8" />
+    </svg>`;
+  } else {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#3498db" stroke-width="5" />
+      <text x="50" y="65" font-size="60" text-anchor="middle" fill="#3498db">i</text>
+    </svg>`;
+  }
+  
+  iconElement.innerHTML = iconHTML;
+  
+  // Show/hide retry button
+  const retryButton = document.getElementById('retry-face-detection');
+  if (showRetryButton) {
+    retryButton.classList.remove('d-none');
+  } else {
+    retryButton.classList.add('d-none');
+  }
+  
+  // Show modal
+  alertModal.show();
+}
+
+// initialization function
 async function initialize() {
   try {
     await loadModels();
@@ -24,11 +70,13 @@ async function initialize() {
     console.error('Initialization error:', error);
     faceStatus.textContent = 'Error initializing: ' + error.message;
     faceStatus.className = 'mt-2 text-center status-error';
-    schedulePageRefresh();
+    
+    // Show alert instead of refreshing
+    showAlert('Error', 'Failed to initialize face detection: ' + error.message, true);
   }
 }
 
-// ngeload face-api models
+// load face-api models
 async function loadModels() {
   faceStatus.textContent = 'Loading face detection models...';
   try {
@@ -69,7 +117,7 @@ async function startWebcam() {
   }
 }
 
-// landmark68
+// face detection function
 function startFaceDetection() {
   if (!modelsLoaded) {
     console.error('Models not loaded');
@@ -130,7 +178,7 @@ function startFaceDetection() {
   }, 100);
 }
 
-// Timer  saat tidak ada wajah terdeteksi
+// Timer for when no face is detected
 function startNoFaceTimer() {
   noFaceTimeout = setTimeout(() => {
     if (!faceCaptured) {
@@ -140,12 +188,11 @@ function startNoFaceTimer() {
       showAlert('Error', 'No face detected. Please try again.', true);
       faceStatus.textContent = 'Timed out waiting for face';
       faceStatus.className = 'mt-2 text-center status-error';
-      schedulePageRefresh();
     }
-  }, 7000); 
+  }, 15000); 
 }
 
-// snapshot wajah dan verifikasi
+// capture face and verify
 async function captureAndVerify() {
   if (!faceDetected) {
     return false;
@@ -163,24 +210,22 @@ async function captureAndVerify() {
     if (detections.length === 0) {
       faceStatus.textContent = 'Face verification failed. Please try again.';
       faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', false);
-      schedulePageRefresh();
+      showAlert('Verification Failed', 'Face verification failed. Please try again.', true);
       return false;
     }
 
     if (detections.length > 1) {
       faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
       faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', false);
-      schedulePageRefresh();
+      showAlert('Multiple Faces', 'Multiple faces detected. Please ensure only your face is visible.', true);
       return false;
     }
 
-    //berhasil menangkap wajah
+    // Successfully captured face
     faceCaptured = true;
     clearTimeout(noFaceTimeout); 
     
-    // matikan deteksi wajah
+    // Stop face detection
     if (faceDetectionInterval) {
       clearInterval(faceDetectionInterval);
     }
@@ -188,9 +233,9 @@ async function captureAndVerify() {
     faceStatus.textContent = 'Face detected successfully';
     faceStatus.className = 'mt-2 text-center status-success';
     
-    // men-set waktu tunggu 3 detik sebelum menyembunyikan webcam
+    // Set timeout before hiding webcam
     setTimeout(() => {
-      // Hide webcam container dan menampilkan form login
+      // Hide webcam container and show login form
       webcamContainer.style.display = 'none';
       if (captureBtn) captureBtn.style.display = 'none';
       loginForm.classList.remove('d-none');
@@ -203,30 +248,12 @@ async function captureAndVerify() {
     return true;
   } catch (error) {
     console.error('Capture error:', error);
-    showAlert('Error', 'Face verification failed: ' + error.message);
-    schedulePageRefresh();
+    showAlert('Error', 'Face verification failed: ' + error.message, true);
     return false;
   }
 }
 
-// fungsi untuk auto refresh
-function schedulePageRefresh() {
-  // Clear any existing timeouts first
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
-  }
-  
-  // menampilkan pesan untuk mereferesh halaman
-  faceStatus.textContent = 'Verification failed. Page will refresh automatically...';
-  faceStatus.className = 'mt-2 text-center status-error';
-  
-  verificationFailedTimeout = setTimeout(() => {
-    console.log('Auto-refreshing page due to face verification failure');
-    window.location.reload();
-  }, 7000);
-}
-
-// mengulang proses deteksi wajah
+// Retry face detection
 function retryFaceDetection() {
   console.log('Retry face detection triggered');
   // Reset state
@@ -239,9 +266,6 @@ function retryFaceDetection() {
   if (noFaceTimeout) {
     clearTimeout(noFaceTimeout);
   }
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
-  }
   
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
@@ -252,6 +276,11 @@ function retryFaceDetection() {
   webcamContainer.style.display = '';
   if (captureBtn) captureBtn.style.display = '';
   loginForm.classList.add('d-none');
+  
+  // Close modal if open
+  if (alertModal) {
+    alertModal.hide();
+  }
   
   // Restart 
   initialize();
@@ -265,11 +294,18 @@ window.addEventListener('beforeunload', () => {
   if (noFaceTimeout) {
     clearTimeout(noFaceTimeout);
   }
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
-  }
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
+  }
+});
+
+// Add event listener for retry button
+document.addEventListener('DOMContentLoaded', () => {
+  const retryButton = document.getElementById('retry-face-detection');
+  if (retryButton) {
+    retryButton.addEventListener('click', () => {
+      retryFaceDetection();
+    });
   }
 });
 
