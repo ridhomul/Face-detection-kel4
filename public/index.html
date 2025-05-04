@@ -16,23 +16,89 @@
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   </head>
   <body>
-    <!-- Face Detection Screen (Initial Screen) -->
-    <div class="screen animate__animated animate__fadeIn" id="face-detection-screen">
-        <div class="logo-centered">Kelpo</div>
-        
-        <div class="face-detection-container">
-            <div class="camera-box">
-                <video id="video" class="camera-feed" autoplay muted playsinline></video>
-                <canvas id="canvas" class="d-none"></canvas>
-                
-                <div class="face-detection-overlay">
-                    <div class="status-indicator status-red" id="detection-status">
-                        <div class="status-dot"></div>
-                        <div class="status-dot center"></div>
-                        <div class="status-dot"></div>
-                    </div>
-                    
-                    <span class="status-label status-loading" id="status-label">Loading Face Detection Models</span>
+    <div class="container mt-5">
+      <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+          <div class="logo-container text-center mb-4">
+            <svg
+              width="80"
+              height="80"
+              viewBox="0 0 100 100"
+              class="animate__animated animate__fadeIn"
+            >
+              <rect
+                x="10"
+                y="10"
+                width="80"
+                height="80"
+                rx="15"
+                fill="none"
+                stroke="#3498db"
+                stroke-width="4"
+                class="logo-ring"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="25"
+                fill="#3498db"
+                class="animate__animated animate__fadeIn animate__delay-1s"
+              />
+              <circle
+                cx="38"
+                cy="40"
+                r="4"
+                fill="white"
+                class="animate__animated animate__fadeIn animate__delay-1s"
+              />
+              <circle
+                cx="62"
+                cy="40"
+                r="4"
+                fill="white"
+                class="animate__animated animate__fadeIn animate__delay-1s"
+              />
+              <path
+                d="M35,60 Q50,75 65,60"
+                stroke="white"
+                stroke-width="3"
+                fill="none"
+                class="animate__animated animate__fadeIn animate__delay-1s"
+              />
+            </svg>
+            <h1
+              class="mt-3 animate__animated animate__fadeIn animate__delay-1s"
+            >
+              SmartFace
+            </h1>
+            <p
+              class="text-muted animate__animated animate__fadeIn animate__delay-1s"
+            >
+              Secure Face Detection Login System
+            </p>
+          </div>
+
+          <div class="card shadow animate__animated animate__fadeInUp">
+            <div class="card-header text-center">
+              <h2 class="mb-0">Face Recognition Login</h2>
+            </div>
+            <div class="card-body">
+              <div
+                class="centered-webcam-container animate__animated animate__fadeIn animate__delay-1s"
+              >
+                <div class="webcam-container" id="webcam-container">
+                  <video
+                    id="video"
+                    width="100%"
+                    height="auto"
+                    autoplay
+                    muted
+                    playsinline
+                  ></video>
+                  <canvas id="canvas" class="d-none"></canvas>
+                  <div id="scanning-overlay" class="scanning-overlay">
+                    <div class="scan-line"></div>
+                  </div>
                 </div>
                 
                 <div class="face-detection-info">
