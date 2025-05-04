@@ -137,7 +137,7 @@ function startNoFaceTimer() {
       if (faceDetectionInterval) {
         clearInterval(faceDetectionInterval);
       }
-      showAlert('Error', 'No face detected. Please try again.', true);
+      showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
       faceStatus.textContent = 'Timed out waiting for face';
       faceStatus.className = 'mt-2 text-center status-error';
       schedulePageRefresh();
@@ -163,7 +163,7 @@ async function captureAndVerify() {
     if (detections.length === 0) {
       faceStatus.textContent = 'Face verification failed. Please try again.';
       faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', false);
+      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
       schedulePageRefresh();
       return false;
     }
@@ -171,7 +171,7 @@ async function captureAndVerify() {
     if (detections.length > 1) {
       faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
       faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', false);
+      showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', 'error', false);
       schedulePageRefresh();
       return false;
     }
@@ -203,7 +203,7 @@ async function captureAndVerify() {
     return true;
   } catch (error) {
     console.error('Capture error:', error);
-    showAlert('Error', 'Face verification failed: ' + error.message);
+    showAlert('Error', 'Face verification failed: ' + error.message, 'error', false);
     schedulePageRefresh();
     return false;
   }
@@ -224,6 +224,56 @@ function schedulePageRefresh() {
     console.log('Auto-refreshing page due to face verification failure');
     window.location.reload();
   }, 3000);
+}
+
+// Show alert function
+function showAlert(title, message, type = 'info', showRetry = false) {
+  const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+  document.getElementById('alertModalTitle').textContent = title;
+  document.getElementById('modal-message').textContent = message;
+  
+  const iconElement = document.getElementById('modal-icon');
+  let iconHTML = '';
+  
+  if (type === 'success') {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#2ecc71" stroke-width="5" />
+      <path d="M30,50 L45,65 L70,35" stroke="#2ecc71" stroke-width="8" fill="none" />
+    </svg>`;
+  } else if (type === 'error') {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#e74c3c" stroke-width="5" />
+      <line x1="35" y1="35" x2="65" y2="65" stroke="#e74c3c" stroke-width="8" />
+      <line x1="35" y1="65" x2="65" y2="35" stroke="#e74c3c" stroke-width="8" />
+    </svg>`;
+  } else {
+    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="45" fill="none" stroke="#3498db" stroke-width="5" />
+      <text x="50" y="65" font-size="60" text-anchor="middle" fill="#3498db">i</text>
+    </svg>`;
+  }
+  
+  iconElement.innerHTML = iconHTML;
+  
+  // Show/hide retry button based on parameter
+  const retryButton = document.getElementById('retry-face-detection');
+  if (showRetry) {
+    retryButton.classList.remove('d-none');
+    
+    // Add event listener to retry button if showing it
+    retryButton.addEventListener('click', function() {
+      alertModal.hide();
+      if (window.faceDetection && typeof window.faceDetection.retryFaceDetection === 'function') {
+        window.faceDetection.retryFaceDetection();
+      } else {
+        window.location.reload();
+      }
+    });
+  } else {
+    retryButton.classList.add('d-none');
+  }
+  
+  alertModal.show();
 }
 
 // mengulang proses deteksi wajah
@@ -276,7 +326,8 @@ window.addEventListener('beforeunload', () => {
 // Export functions for use in other scripts if needed
 window.faceDetection = {
   initialize,
-  retryFaceDetection
+  retryFaceDetection,
+  showAlert
 };
 
 // Initialize when DOM is loaded
