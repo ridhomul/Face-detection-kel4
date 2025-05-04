@@ -404,12 +404,10 @@ function startNoFaceTimer() {
       if (faceDetectionInterval) {
         clearInterval(faceDetectionInterval);
       }
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
-      }
-      showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
-      updateStatus('Timed out waiting for face', 'error');
+      showAlert('Error', 'No face detected. Please try again.', true);
+      faceStatus.textContent = 'Timed out waiting for face';
+      faceStatus.className = 'mt-2 text-center status-error';
+      schedulePageRefresh();
     }
   }, 15000); 
 }
@@ -421,105 +419,31 @@ async function captureAndVerify() {
   }
 
   try {
-    if (faceDetectionInterval) {
-      clearInterval(faceDetectionInterval);
-      faceDetectionInterval = null;
-    }
-    
-    if (animationFrameId) {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    }
-    
-    if (canvas && video) {
-      const ctx = canvas.getContext('2d');
-      
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  
-      const detections = await faceapi.detectAllFaces(
-        canvas,
-        new faceapi.TinyFaceDetectorOptions({ scoreThreshold: confidenceThreshold })
-      ).withFaceLandmarks(true);
-  
-      if (detections.length === 0) {
-        updateStatus('Face verification failed. Please try again.', 'error');
-        showAlert('Verification Failed', 'Face verification failed. Please try again.', 'error', true);
-        if (!faceDetectionInterval) {
-          startFaceDetection(); // lanjutkan pendeteksian wajah jika verif gagal
-        }
-        return false;
-      }
-  
-      if (detections.length > 1) {
-        updateStatus('Multiple faces detected. Please ensure only your face is visible.', 'error');
-        showAlert('Multiple Faces', 'Multiple faces detected. Please ensure only your face is visible.', 'error', true);
-        if (!faceDetectionInterval) {
-          startFaceDetection(); // lanjutkan pendeteksian wajah jika verif gagal
-        }
-        return false;
-      }
-      
-      // verficiation overlay dengan pesan success
-      const displaySize = { width: canvas.width, height: canvas.height };
-      const resizedResults = faceapi.resizeResults(detections, displaySize);
-      
-      // Draw a "success" animation
-      const { x, y, width, height } = resizedResults[0].detection.box;
-      const successAnimation = async () => {
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Draw expanding circle
-        for (let i = 0; i < 20; i++) {
-          await new Promise(resolve => setTimeout(resolve, 20));
-          
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
-          const centerX = x + width / 2;
-          const centerY = y + height / 2;
-          const radius = Math.min(width, height) * (i / 15);
-          
-          ctx.strokeStyle = `rgba(76, 175, 132, ${1 - i/20})`; // Fade out as it expands
-          ctx.lineWidth = 3;
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        
-        // Draw final success box
-        ctx.strokeStyle = '#4CAF84'; // teal
-        ctx.lineWidth = 4;
-        ctx.strokeRect(x, y, width, height);
-        
-        // Draw landmarks for final result
-        ctx.strokeStyle = '#dceaa3'; // lime green
-        ctx.lineWidth = 2;
-        faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
-        
-        // Draw checkmark
-        ctx.strokeStyle = '#4CAF84';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        
-        const checkSize = Math.min(width, height) * 0.3;
-        const checkX = x + width / 2;
-        const checkY = y + height / 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(checkX - checkSize/2, checkY);
-        ctx.lineTo(checkX - checkSize/6, checkY + checkSize/2);
-        ctx.lineTo(checkX + checkSize/2, checkY - checkSize/3);
-        ctx.stroke();
-      };
-      
-      await successAnimation();
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const detections = await faceapi.detectAllFaces(
+      canvas,
+      new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
+    ).withFaceLandmarks(true);
+
+    if (detections.length === 0) {
+      faceStatus.textContent = 'Face verification failed. Please try again.';
+      faceStatus.className = 'mt-2 text-center status-error';
+      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', false);
+      schedulePageRefresh();
+      return false;
     }
 
-    // Successfully captured face
+    if (detections.length > 1) {
+      faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
+      faceStatus.className = 'mt-2 text-center status-error';
+      showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', false);
+      schedulePageRefresh();
+      return false;
+    }
+
+    //berhasil menangkap wajah
     faceCaptured = true;
     clearTimeout(noFaceTimeout); 
     
@@ -538,94 +462,27 @@ async function captureAndVerify() {
     return true;
   } catch (error) {
     console.error('Capture error:', error);
-    showAlert('Error', 'Face verification failed: ' + error.message, 'error', true);
+    showAlert('Error', 'Face verification failed: ' + error.message);
+    schedulePageRefresh();
     return false;
   }
 }
 
-/**
- * Show alert modal
- * @param {string} title - Alert title
- * @param {string} message - Alert message
- * @param {string} type - Alert type (success, error, info)
- * @param {boolean} showRetry - Whether to show retry button
- */
-function showAlert(title, message, type = 'info', showRetry = false) {
-  const alertModalElement = document.getElementById('alertModal');
-  if (!alertModalElement) return;
-  
-  // Handle any existing modal first
-  const existingModal = bootstrap.Modal.getInstance(alertModalElement);
-  if (existingModal) {
-    existingModal.dispose();
+// fungsi untuk auto refresh
+function schedulePageRefresh() {
+  // Clear any existing timeouts first
+  if (verificationFailedTimeout) {
+    clearTimeout(verificationFailedTimeout);
   }
   
-  const alertModal = new bootstrap.Modal(alertModalElement);
-  document.getElementById('alertModalTitle').textContent = title;
-  document.getElementById('modal-message').textContent = message;
+  // menampilkan pesan untuk mereferesh halaman
+  faceStatus.textContent = 'Verification failed. Page will refresh automatically...';
+  faceStatus.className = 'mt-2 text-center status-error';
   
-  const iconElement = document.getElementById('modal-icon');
-  let iconHTML = '';
-  
-  if (type === 'success') {
-    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="45" fill="none" stroke="#2ecc71" stroke-width="5" />
-      <path d="M30,50 L45,65 L70,35" stroke="#2ecc71" stroke-width="8" fill="none" />
-    </svg>`;
-  } else if (type === 'error') {
-    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="45" fill="none" stroke="#e74c3c" stroke-width="5" />
-      <line x1="35" y1="35" x2="65" y2="65" stroke="#e74c3c" stroke-width="8" />
-      <line x1="35" y1="65" x2="65" y2="35" stroke="#e74c3c" stroke-width="8" />
-    </svg>`;
-  } else {
-    iconHTML = `<svg width="50" height="50" viewBox="0 0 100 100">
-      <circle cx="50" cy="50" r="45" fill="none" stroke="#3498db" stroke-width="5" />
-      <text x="50" y="65" font-size="60" text-anchor="middle" fill="#3498db">i</text>
-    </svg>`;
-  }
-  
-  iconElement.innerHTML = iconHTML;
-  
-  // Show/hide retry button based on parameter
-  const retryButton = document.getElementById('retry-face-detection');
-  if (retryButton) {
-    // Remove any existing event listeners first
-    const newRetryButton = retryButton.cloneNode(true);
-    retryButton.parentNode.replaceChild(newRetryButton, retryButton);
-    
-    if (showRetry) {
-      newRetryButton.classList.remove('d-none');
-      
-      // Add event listener to retry button if showing it
-      newRetryButton.addEventListener('click', function() {
-        alertModal.hide();
-        retryFaceDetection();
-      });
-    } else {
-      newRetryButton.classList.add('d-none');
-    }
-  }
-  
-  // Pause detection while modal is shown
-  if (faceDetectionInterval) {
-    clearInterval(faceDetectionInterval);
-  }
-  
-  // Pause animation while modal is shown
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId);
-    animationFrameId = null;
-  }
-  
-  // Resume detection when modal is hidden
-  alertModalElement.addEventListener('hidden.bs.modal', function() {
-    if (!faceCaptured) {
-      startFaceDetection();
-    }
-  }, { once: true });
-  
-  alertModal.show();
+  verificationFailedTimeout = setTimeout(() => {
+    console.log('Auto-refreshing page due to face verification failure');
+    window.location.reload();
+  }, 3000);
 }
 
 function retryFaceDetection() {
@@ -692,9 +549,7 @@ window.addEventListener('beforeunload', () => {
 // Export functions for use in other scripts
 window.faceDetection = {
   initialize,
-  retryFaceDetection,
-  showAlert,
-  showScreen
+  retryFaceDetection
 };
 
 // Initialize when DOM is loaded
