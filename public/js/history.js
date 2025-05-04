@@ -121,4 +121,4 @@ document.addEventListener("DOMContentLoaded", function () {
     localStorage.removeItem("token");
     window.location.href = "/";
   });
-}); 
+});
