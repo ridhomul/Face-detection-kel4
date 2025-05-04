@@ -7,7 +7,7 @@ const loginFormContainer = document.getElementById('login-form');
 const registerFormContainer = document.getElementById('register-form');
 const retryButton = document.getElementById('retry-face-detection');
 
-// apakah user sudah login?
+// Check if user is already logged in
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -15,18 +15,33 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// peralihan antara form login dan register
+// Toggle between login and register forms
 function toggleForms() {
-  if (loginFormContainer.classList.contains('d-none')) {
-    loginFormContainer.classList.remove('d-none');
-    registerFormContainer.classList.add('d-none');
+  // Check if we're using Kelpo UI
+  if (document.getElementById('login-screen')) {
+    const loginScreen = document.getElementById('login-screen');
+    const registerScreen = document.getElementById('register-screen');
+    
+    if (loginScreen.style.display !== 'none') {
+      loginScreen.style.display = 'none';
+      registerScreen.style.display = 'block';
+    } else {
+      loginScreen.style.display = 'block';
+      registerScreen.style.display = 'none';
+    }
   } else {
-    loginFormContainer.classList.add('d-none');
-    registerFormContainer.classList.remove('d-none');
+    // Original UI toggle logic
+    if (loginFormContainer.classList.contains('d-none')) {
+      loginFormContainer.classList.remove('d-none');
+      registerFormContainer.classList.add('d-none');
+    } else {
+      loginFormContainer.classList.add('d-none');
+      registerFormContainer.classList.remove('d-none');
+    }
   }
 }
 
-// fungsi untuk menangani login
+// Handle login function
 async function loginUser(username, password) {
   try {
     const response = await fetch('/api/auth/login', {
@@ -47,7 +62,7 @@ async function loginUser(username, password) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // mengarahkan ke dashboard
+      // Redirect to dashboard
       window.location.href = '/dashboard';
     } else {
       // Use the custom showAlert function for login failures
@@ -59,7 +74,7 @@ async function loginUser(username, password) {
   }
 }
 
-// fungsi untuk menangani registrasi
+// Handle registration function
 async function registerUser(userData) {
   try {
     const response = await fetch('/api/auth/register', {
@@ -76,7 +91,7 @@ async function registerUser(userData) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // mengarahkan ke dashboard
+      // Redirect to dashboard
       window.location.href = '/dashboard';
     } else {
       showLoginAlert('Registration Failed', data.message || 'Failed to create account. Please try again.');
@@ -118,7 +133,10 @@ function showLoginAlert(title, message) {
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Bootstrap Modal
+  // Check if we're using Kelpo UI
+  const isKelpoUI = document.getElementById('login-screen') !== null;
+
+  // Initialize Bootstrap Modal if it exists
   const alertModalElement = document.getElementById('alertModal');
   if (alertModalElement) {
     alertModalElement.addEventListener('hidden.bs.modal', function () {
@@ -131,43 +149,126 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // pengisian login form
-  if (authForm) {
-    authForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const username = document.getElementById('username').value;
-      const password = document.getElementById('password').value;
-      loginUser(username, password);
-    });
-  }
-
-  // pengisian register form
-  if (registerForm) {
-    registerForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const userData = {
-        name: document.getElementById('reg-name').value,
-        email: document.getElementById('reg-email').value,
-        username: document.getElementById('reg-username').value,
-        password: document.getElementById('reg-password').value,
-      };
-      registerUser(userData);
-    });
-  }
-
-  // peralihan antara form login dan register
-  if (toggleRegisterLink) {
-    toggleRegisterLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      toggleForms();
-    });
-  }
-
-  if (toggleLoginLink) {
-    toggleLoginLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      toggleForms();
-    });
+  // For Kelpo UI
+  if (isKelpoUI) {
+    // Set up login form
+    const loginScreen = document.getElementById('login-screen');
+    if (loginScreen) {
+      const formInputs = loginScreen.querySelectorAll('.form-input');
+      const loginBtn = loginScreen.querySelector('.btn-primary');
+      
+      if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // If we have a simulateFaceDetection function, use it
+          if (window.faceDetection && typeof window.faceDetection.simulateFaceDetection === 'function') {
+            window.faceDetection.simulateFaceDetection();
+          } 
+          // Otherwise handle login normally if we have inputs
+          else if (formInputs.length >= 2) {
+            const username = formInputs[0].value;
+            const password = formInputs[1].value;
+            loginUser(username, password);
+          }
+        });
+      }
+      
+      // Toggle to register
+      const toggleRegister = loginScreen.querySelector('.btn-secondary');
+      if (toggleRegister) {
+        toggleRegister.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (window.faceDetection && typeof window.faceDetection.showScreen === 'function') {
+            window.faceDetection.showScreen('register-screen');
+          } else {
+            toggleForms();
+          }
+        });
+      }
+    }
+    
+    // Set up register form
+    const registerScreen = document.getElementById('register-screen');
+    if (registerScreen) {
+      const formInputs = registerScreen.querySelectorAll('.form-input');
+      const registerBtn = registerScreen.querySelector('.btn-primary');
+      
+      if (registerBtn) {
+        registerBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          
+          // If we have a simulateFaceDetection function, use it
+          if (window.faceDetection && typeof window.faceDetection.simulateFaceDetection === 'function') {
+            window.faceDetection.simulateFaceDetection();
+          } 
+          // Otherwise handle registration normally if we have inputs
+          else if (formInputs.length >= 2) {
+            const userData = {
+              username: formInputs[0].value,
+              password: formInputs[1].value,
+              name: formInputs[0].value, // Using username as name if we only have 2 fields
+              email: formInputs[0].value + '@example.com' // Creating a dummy email
+            };
+            registerUser(userData);
+          }
+        });
+      }
+      
+      // Toggle to login
+      const toggleLogin = registerScreen.querySelector('.btn-secondary');
+      if (toggleLogin) {
+        toggleLogin.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (window.faceDetection && typeof window.faceDetection.showScreen === 'function') {
+            window.faceDetection.showScreen('login-screen');
+          } else {
+            toggleForms();
+          }
+        });
+      }
+    }
+  } else {
+    // Original UI event listeners
+    
+    // Handle login form submission
+    if (authForm) {
+      authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        loginUser(username, password);
+      });
+    }
+  
+    // Handle register form submission
+    if (registerForm) {
+      registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const userData = {
+          name: document.getElementById('reg-name').value,
+          email: document.getElementById('reg-email').value,
+          username: document.getElementById('reg-username').value,
+          password: document.getElementById('reg-password').value,
+        };
+        registerUser(userData);
+      });
+    }
+  
+    // Toggle between login and register forms
+    if (toggleRegisterLink) {
+      toggleRegisterLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleForms();
+      });
+    }
+  
+    if (toggleLoginLink) {
+      toggleLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        toggleForms();
+      });
+    }
   }
 
   // Add event listener for retry button if it exists

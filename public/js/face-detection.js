@@ -13,7 +13,25 @@ let faceCaptured = false;
 let noFaceTimeout = null;
 let verificationFailedTimeout = null;
 
-// inisialisasi variabel
+// Screen navigation function
+function showScreen(screenId) {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.style.display = 'none';
+    });
+    
+    // Show the requested screen
+    document.getElementById(screenId).style.display = 'block';
+    
+    // Handle camera if showing face detection screens
+    if (screenId === 'face-detection-screen' || screenId === 'face-detection-success') {
+        startWebcam();
+    } else {
+        stopCamera();
+    }
+}
+
+// Initialize the app
 async function initialize() {
   try {
     await loadModels();
@@ -28,7 +46,7 @@ async function initialize() {
   }
 }
 
-// ngeload face-api models
+// Load face-api models
 async function loadModels() {
   faceStatus.textContent = 'Loading face detection models...';
   try {
@@ -46,30 +64,61 @@ async function loadModels() {
 // Start webcam
 async function startWebcam() {
   try {
-    faceStatus.textContent = 'Requesting camera access...';
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: 'user'
+    if (faceStatus) {
+      faceStatus.textContent = 'Requesting camera access...';
+    }
+    
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'user'
+        }
+      });
+      
+      // Find all video elements with camera-feed class
+      const videoElements = document.querySelectorAll('.camera-feed');
+      videoElements.forEach(videoElement => {
+        videoElement.srcObject = stream;
+      });
+      
+      // Also set the main video element for face detection if it exists
+      if (video) {
+        video.srcObject = stream;
+        await new Promise((resolve) => {
+          video.onloadedmetadata = () => resolve();
+        });
+        await video.play();
+        
+        if (canvas) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
       }
-    });
-    video.srcObject = stream;
-    await new Promise((resolve) => {
-      video.onloadedmetadata = () => resolve();
-    });
-    await video.play();
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    faceStatus.textContent = 'Camera ready. Waiting for face...';
-    console.log('Webcam started successfully');
+      
+      if (faceStatus) {
+        faceStatus.textContent = 'Camera ready. Waiting for face...';
+      }
+      console.log('Webcam started successfully');
+    }
   } catch (error) {
     console.error('Error starting webcam:', error);
     throw new Error('Failed to access camera');
   }
 }
 
-// landmark68
+// Stop camera function
+function stopCamera() {
+  if (stream) {
+    stream.getTracks().forEach(track => {
+      track.stop();
+    });
+    stream = null;
+  }
+}
+
+// Start face detection
 function startFaceDetection() {
   if (!modelsLoaded) {
     console.error('Models not loaded');
@@ -81,7 +130,7 @@ function startFaceDetection() {
   }
 
   faceDetectionInterval = setInterval(async () => {
-    if (!video.paused && !video.ended && !faceCaptured) {
+    if (video && !video.paused && !video.ended && !faceCaptured) {
       try {
         const detections = await faceapi.detectAllFaces(
           video,
@@ -109,6 +158,17 @@ function startFaceDetection() {
 
           faceStatus.textContent = 'Face detected';
           faceStatus.className = 'mt-2 text-center status-success';
+          
+          // Update status indicator for Kelpo UI
+          const statusIndicator = document.getElementById('detection-status');
+          const statusLabel = document.getElementById('status-label');
+          
+          if (statusIndicator && statusLabel) {
+            statusIndicator.className = 'status-indicator status-green';
+            statusLabel.className = 'status-label status-success';
+            statusLabel.textContent = 'Successful';
+          }
+          
           faceDetected = true;
           
           // Auto-capture the face after detection
@@ -130,7 +190,7 @@ function startFaceDetection() {
   }, 100);
 }
 
-// Timer  saat tidak ada wajah terdeteksi
+// Timer for when no face is detected
 function startNoFaceTimer() {
   noFaceTimeout = setTimeout(() => {
     if (!faceCaptured) {
@@ -138,67 +198,86 @@ function startNoFaceTimer() {
         clearInterval(faceDetectionInterval);
       }
       showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
-      faceStatus.textContent = 'Timed out waiting for face';
-      faceStatus.className = 'mt-2 text-center status-error';
+      
+      if (faceStatus) {
+        faceStatus.textContent = 'Timed out waiting for face';
+        faceStatus.className = 'mt-2 text-center status-error';
+      }
+      
       schedulePageRefresh();
     }
   }, 7000); 
 }
 
-// snapshot wajah dan verifikasi
+// Capture face and verify
 async function captureAndVerify() {
   if (!faceDetected) {
     return false;
   }
 
   try {
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const detections = await faceapi.detectAllFaces(
-      canvas,
-      new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
-    ).withFaceLandmarks(true);
-
-    if (detections.length === 0) {
-      faceStatus.textContent = 'Face verification failed. Please try again.';
-      faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
-      schedulePageRefresh();
-      return false;
+    if (canvas && video) {
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+      const detections = await faceapi.detectAllFaces(
+        canvas,
+        new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
+      ).withFaceLandmarks(true);
+  
+      if (detections.length === 0) {
+        faceStatus.textContent = 'Face verification failed. Please try again.';
+        faceStatus.className = 'mt-2 text-center status-error';
+        showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
+        schedulePageRefresh();
+        return false;
+      }
+  
+      if (detections.length > 1) {
+        faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
+        faceStatus.className = 'mt-2 text-center status-error';
+        showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', 'error', false);
+        schedulePageRefresh();
+        return false;
+      }
     }
 
-    if (detections.length > 1) {
-      faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
-      faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', 'error', false);
-      schedulePageRefresh();
-      return false;
-    }
-
-    //berhasil menangkap wajah
+    // Successfully captured face
     faceCaptured = true;
     clearTimeout(noFaceTimeout); 
     
-    // matikan deteksi wajah
+    // Stop face detection
     if (faceDetectionInterval) {
       clearInterval(faceDetectionInterval);
     }
     
-    faceStatus.textContent = 'Face detected successfully';
-    faceStatus.className = 'mt-2 text-center status-success';
+    if (faceStatus) {
+      faceStatus.textContent = 'Face detected successfully';
+      faceStatus.className = 'mt-2 text-center status-success';
+    }
     
-    // men-set waktu tunggu 3 detik sebelum menyembunyikan webcam
-    setTimeout(() => {
-      // Hide webcam container dan menampilkan form login
-      webcamContainer.style.display = 'none';
-      if (captureBtn) captureBtn.style.display = 'none';
-      loginForm.classList.remove('d-none');
-      // Stop webcam 
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    }, 3000);
+    // Show success screen for Kelpo UI
+    if (document.getElementById('face-detection-screen')) {
+      setTimeout(() => {
+        showScreen('face-detection-success');
+        
+        // Auto-return to login after successful detection
+        setTimeout(() => {
+          showScreen('login-screen');
+        }, 3000);
+      }, 1500);
+    } else {
+      // For original UI - wait 3 seconds before hiding webcam
+      setTimeout(() => {
+        // Hide webcam container and show login form
+        if (webcamContainer) webcamContainer.style.display = 'none';
+        if (captureBtn) captureBtn.style.display = 'none';
+        if (loginForm) loginForm.classList.remove('d-none');
+        
+        // Stop webcam 
+        stopCamera();
+      }, 3000);
+    }
 
     return true;
   } catch (error) {
@@ -209,16 +288,46 @@ async function captureAndVerify() {
   }
 }
 
-// fungsi untuk auto refresh
+// Face detection simulation for Kelpo UI
+function simulateFaceDetection() {
+  showScreen('face-detection-screen');
+  
+  // Simulate face detection process
+  setTimeout(() => {
+    const statusIndicator = document.getElementById('detection-status');
+    const statusLabel = document.getElementById('status-label');
+    
+    if (statusIndicator && statusLabel) {
+      // Update to success state
+      statusIndicator.className = 'status-indicator status-green';
+      statusLabel.className = 'status-label status-success';
+      statusLabel.textContent = 'Successful';
+      
+      // Show success screen after delay
+      setTimeout(() => {
+        showScreen('face-detection-success');
+        
+        // Auto-return to login after successful detection
+        setTimeout(() => {
+          showScreen('login-screen');
+        }, 3000);
+      }, 1500);
+    }
+  }, 3000);
+}
+
+// Auto refresh function
 function schedulePageRefresh() {
   // Clear any existing timeouts first
   if (verificationFailedTimeout) {
     clearTimeout(verificationFailedTimeout);
   }
   
-  // menampilkan pesan untuk mereferesh halaman
-  faceStatus.textContent = 'Verification failed. Page will refresh automatically...';
-  faceStatus.className = 'mt-2 text-center status-error';
+  // Show message about refreshing page
+  if (faceStatus) {
+    faceStatus.textContent = 'Verification failed. Page will refresh automatically...';
+    faceStatus.className = 'mt-2 text-center status-error';
+  }
   
   verificationFailedTimeout = setTimeout(() => {
     console.log('Auto-refreshing page due to face verification failure');
@@ -257,26 +366,24 @@ function showAlert(title, message, type = 'info', showRetry = false) {
   
   // Show/hide retry button based on parameter
   const retryButton = document.getElementById('retry-face-detection');
-  if (showRetry) {
-    retryButton.classList.remove('d-none');
-    
-    // Add event listener to retry button if showing it
-    retryButton.addEventListener('click', function() {
-      alertModal.hide();
-      if (window.faceDetection && typeof window.faceDetection.retryFaceDetection === 'function') {
-        window.faceDetection.retryFaceDetection();
-      } else {
-        window.location.reload();
-      }
-    });
-  } else {
-    retryButton.classList.add('d-none');
+  if (retryButton) {
+    if (showRetry) {
+      retryButton.classList.remove('d-none');
+      
+      // Add event listener to retry button if showing it
+      retryButton.addEventListener('click', function() {
+        alertModal.hide();
+        retryFaceDetection();
+      });
+    } else {
+      retryButton.classList.add('d-none');
+    }
   }
   
   alertModal.show();
 }
 
-// mengulang proses deteksi wajah
+// Retry face detection
 function retryFaceDetection() {
   console.log('Retry face detection triggered');
   // Reset state
@@ -293,15 +400,12 @@ function retryFaceDetection() {
     clearTimeout(verificationFailedTimeout);
   }
   
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    stream = null;
-  }
+  stopCamera();
   
   // Make sure webcam container is visible
-  webcamContainer.style.display = '';
+  if (webcamContainer) webcamContainer.style.display = '';
   if (captureBtn) captureBtn.style.display = '';
-  loginForm.classList.add('d-none');
+  if (loginForm) loginForm.classList.add('d-none');
   
   // Restart 
   initialize();
@@ -318,17 +422,56 @@ window.addEventListener('beforeunload', () => {
   if (verificationFailedTimeout) {
     clearTimeout(verificationFailedTimeout);
   }
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-  }
+  stopCamera();
 });
 
 // Export functions for use in other scripts if needed
 window.faceDetection = {
   initialize,
   retryFaceDetection,
-  showAlert
+  showAlert,
+  simulateFaceDetection,
+  showScreen
 };
 
 // Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', initialize);
+document.addEventListener('DOMContentLoaded', () => {
+  // Check if we're using Kelpo UI or original UI
+  const isKelpoUI = document.getElementById('face-detection-screen') !== null;
+  
+  if (isKelpoUI) {
+    // Set up login button for Kelpo UI
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+      loginBtn.addEventListener('click', function() {
+        simulateFaceDetection();
+      });
+    }
+    
+    // Set up register button for Kelpo UI
+    const registerBtn = document.getElementById('register-btn');
+    if (registerBtn) {
+      registerBtn.addEventListener('click', function() {
+        simulateFaceDetection();
+      });
+    }
+    
+    // Set up navigation arrows for Kelpo UI
+    const nextArrow = document.getElementById('next-arrow');
+    if (nextArrow) {
+      nextArrow.addEventListener('click', function() {
+        showScreen('face-detection-success');
+      });
+    }
+    
+    const finalArrow = document.getElementById('final-arrow');
+    if (finalArrow) {
+      finalArrow.addEventListener('click', function() {
+        showScreen('login-screen');
+      });
+    }
+  } else {
+    // Initialize original face detection
+    initialize();
+  }
+});
