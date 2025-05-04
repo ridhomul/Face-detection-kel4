@@ -34,7 +34,7 @@ body {
   color: var(--dark-gray);
 }
 
-/* Screen layout */
+/* Screen layout - Updated for better centering */
 .screen {
   width: 100%;
   height: 100vh;
@@ -45,6 +45,7 @@ body {
   position: relative;
   padding: 20px;
   transition: all 0.5s ease;
+  overflow-y: auto; /* Allow scrolling if content is too tall */
 }
 
 /* Logo styling */
@@ -56,6 +57,8 @@ body {
   text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
   margin-bottom: 30px;
   letter-spacing: -0.03em;
+  text-align: center; /* Center the logo text */
+  width: 100%; /* Make logo take full width for centering */
 }
 
 .logo-centered {
@@ -69,15 +72,15 @@ body {
   letter-spacing: -0.03em;
 }
 
-/* Card styles */
+/* Card styles - Updated with better centering */
 .card {
   background-color: #fff;
   padding: 40px;
   border-radius: 20px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 500px;
-  margin-bottom: 20px;
+  max-width: 420px; /* Reduced max-width for better look */
+  margin: 0 auto; /* Center the card horizontally */
   position: relative;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -92,7 +95,7 @@ body {
 }
 
 .card-register {
-  background-color: var(--orange);
+  background-color: var(--white); /* Changed from orange to white for consistency */
 }
 
 /* Status banner */
@@ -126,6 +129,7 @@ body {
   margin-bottom: 30px;
   color: #000;
   letter-spacing: -0.02em;
+  text-align: left; /* Keep left alignment within the card */
 }
 
 /* Form inputs */
@@ -191,6 +195,8 @@ body {
   background-color: var(--lime-green);
   color: var(--dark-gray);
   padding: 10px 20px;
+  margin: 0 auto; /* Center the secondary button */
+  display: inline-block;
 }
 
 .btn-secondary:hover {
@@ -198,13 +204,16 @@ body {
   transform: translateY(-2px);
 }
 
-/* Navigation section */
+/* Navigation section - Updated for better centering */
 .nav-section {
   margin-top: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  width: 100%;
+  text-align: center;
 }
 
 .nav-text {
@@ -251,7 +260,7 @@ body {
   position: absolute;
   bottom: 30px;
   left: 0;
-  background-color: var(--blue);
+  background-color: rgba(33, 10, 239, 0.314);
   color: var(--white);
   padding: 20px;
   border-radius: 0 15px 15px 0;
@@ -518,6 +527,7 @@ body {
   
   .card {
     padding: 30px;
+    max-width: 90%; /* Adjust card width for smaller screens */
   }
   
   .status-banner {

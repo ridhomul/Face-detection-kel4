@@ -1,5 +1,4 @@
-// Modified face-detection.js with lively landmark and box drawing
-
+//Dom elements
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const faceStatus = document.getElementById('face-status');
@@ -9,7 +8,7 @@ const captureBtn = document.getElementById('capture-btn');
 const statusLabel = document.getElementById('status-label');
 const detectionStatus = document.getElementById('detection-status');
 
-// State variables
+// deklarasi variabel
 let stream = null;
 let faceDetectionInterval = null;
 let modelsLoaded = false;
@@ -20,20 +19,18 @@ let lastDetection = null; // Store last detection for animation
 let animationFrameId = null; // For animation frame
 let confidenceThreshold = 0.5; // Detection confidence threshold
 
-/**
- * Screen navigation function
- * @param {string} screenId - The ID of the screen to show
+/** 
+ @param {string} screenId - The ID of the screen to show
  */
 function showScreen(screenId) {
-    // Hide all screens
+    // sembunyikan screen
     document.querySelectorAll('.screen').forEach(screen => {
         screen.style.display = 'none';
     });
-    
-    // Show the requested screen
+
+    // hanya tunjukkan screen yang diminta
     document.getElementById(screenId).style.display = 'block';
     
-    // Handle camera if showing face detection screens
     if (screenId === 'face-detection-screen') {
         startWebcam();
     } else if (screenId !== 'face-detection-success') {
@@ -41,9 +38,7 @@ function showScreen(screenId) {
     }
 }
 
-/**
- * Initialize the face detection system
- */
+//face detection initialization
 async function initialize() {
   try {
     updateStatus('Loading face detection models...', 'loading');
@@ -64,7 +59,7 @@ async function initialize() {
 }
 
 /**
- * Update the status display
+ * Status display
  * @param {string} message - Status message to display
  * @param {string} type - Status type (loading, success, error)
  */
@@ -119,9 +114,7 @@ function updateStatus(message, type = 'loading') {
   }
 }
 
-/**
- * Load face-api models
- */
+//face api model
 async function loadModels() {
   try {
     await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
@@ -135,9 +128,7 @@ async function loadModels() {
   }
 }
 
-/**
- * Start webcam
- */
+//menampilkan webcam
 async function startWebcam() {
   try {
     updateStatus('Requesting camera access...', 'loading');
@@ -184,9 +175,6 @@ async function startWebcam() {
   }
 }
 
-/**
- * Stop camera
- */
 function stopCamera() {
   if (stream) {
     stream.getTracks().forEach(track => {
@@ -196,7 +184,6 @@ function stopCamera() {
     console.log('Camera stopped');
   }
   
-  // Also stop animation if running
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId);
     animationFrameId = null;
@@ -216,7 +203,7 @@ function animateDetection() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
   if (lastDetection && lastDetection.length > 0) {
-    // Draw detection boxes with a slight pulse effect
+    // detection boxes
     const pulseScale = 1 + 0.05 * Math.sin(Date.now() / 200); // Subtle pulsing effect
     
     lastDetection.forEach(result => {
@@ -226,50 +213,44 @@ function animateDetection() {
       const centerX = x + width / 2;
       const centerY = y + height / 2;
       
-      // Draw box with pulse effect
-      ctx.strokeStyle = '#4CAF84'; // Use teal from our color palette
+      // gambar kotak dengan efek pulsing
+      ctx.strokeStyle = '#4CAF84'; 
       ctx.lineWidth = 3;
       
-      // Draw the pulsing box
+      // menggambar kotak dengan efek pulsing
       ctx.beginPath();
       const pulseWidth = width * pulseScale;
       const pulseHeight = height * pulseScale;
       ctx.rect(centerX - pulseWidth/2, centerY - pulseHeight/2, pulseWidth, pulseHeight);
       ctx.stroke();
       
-      // Draw the actual box
       ctx.strokeStyle = '#00ff00';
       ctx.beginPath();
       ctx.rect(x, y, width, height);
       ctx.stroke();
       
-      // Draw corners for a more tech-like feel
       const cornerLength = Math.min(width, height) * 0.2;
-      ctx.strokeStyle = '#f5994e'; // Use orange from our color palette
+      ctx.strokeStyle = '#f5994e'; 
       ctx.lineWidth = 4;
       
-      // Top-left corner
       ctx.beginPath();
       ctx.moveTo(x, y + cornerLength);
       ctx.lineTo(x, y);
       ctx.lineTo(x + cornerLength, y);
       ctx.stroke();
       
-      // Top-right corner
       ctx.beginPath();
       ctx.moveTo(x + width - cornerLength, y);
       ctx.lineTo(x + width, y);
       ctx.lineTo(x + width, y + cornerLength);
       ctx.stroke();
       
-      // Bottom-left corner
       ctx.beginPath();
       ctx.moveTo(x, y + height - cornerLength);
       ctx.lineTo(x, y + height);
       ctx.lineTo(x + cornerLength, y + height);
       ctx.stroke();
       
-      // Bottom-right corner
       ctx.beginPath();
       ctx.moveTo(x + width - cornerLength, y + height);
       ctx.lineTo(x + width, y + height);
@@ -277,15 +258,12 @@ function animateDetection() {
       ctx.stroke();
     });
     
-    // Draw face landmarks with a smooth animation
     if (lastDetection[0] && lastDetection[0].landmarks) {
       const landmarks = lastDetection[0].landmarks;
       
-      // Draw face contour with animated effect
       ctx.strokeStyle = 'rgba(100, 255, 100, 0.7)';
       ctx.lineWidth = 2;
       
-      // Draw jawline
       const jawPoints = landmarks.getJawOutline();
       ctx.beginPath();
       jawPoints.forEach((point, index) => {
@@ -298,7 +276,6 @@ function animateDetection() {
       });
       ctx.stroke();
       
-      // Draw eyes
       const leftEye = landmarks.getLeftEye();
       const rightEye = landmarks.getRightEye();
       
@@ -315,7 +292,6 @@ function animateDetection() {
         ctx.closePath();
         ctx.stroke();
         
-        // Draw eye centers with pulsing effect
         const eyeCenterX = eye.reduce((sum, point) => sum + point.x, 0) / eye.length;
         const eyeCenterY = eye.reduce((sum, point) => sum + point.y, 0) / eye.length;
         
@@ -326,7 +302,6 @@ function animateDetection() {
         ctx.fill();
       });
       
-      // Draw nose
       const nose = landmarks.getNose();
       ctx.strokeStyle = 'rgba(76, 175, 132, 0.7)'; // teal with transparency
       ctx.beginPath();
@@ -340,7 +315,6 @@ function animateDetection() {
       });
       ctx.stroke();
       
-      // Draw mouth
       const mouth = landmarks.getMouth();
       ctx.strokeStyle = 'rgba(245, 153, 78, 0.7)'; // orange with transparency
       ctx.beginPath();
@@ -357,36 +331,30 @@ function animateDetection() {
     }
   }
   
-  // Continue animation
   animationFrameId = requestAnimationFrame(animateDetection);
 }
 
-/**
- * Start face detection process
- */
+//face detection
 function startFaceDetection() {
   if (!modelsLoaded) {
     console.error('Models not loaded');
     return;
   }
 
-  // Clear any existing interval to prevent duplicates
   if (faceDetectionInterval) {
     clearInterval(faceDetectionInterval);
     faceDetectionInterval = null;
   }
   
-  // Start animation loop
   animateDetection();
 
   console.log('Starting face detection loop');
   faceDetectionInterval = setInterval(async () => {
     if (video && !video.paused && !video.ended && !faceCaptured) {
       try {
-        // Get current video dimensions
+
         const displaySize = { width: video.videoWidth, height: video.videoHeight };
         
-        // Make sure canvas matches video dimensions
         if (canvas.width !== displaySize.width || canvas.height !== displaySize.height) {
           canvas.width = displaySize.width;
           canvas.height = displaySize.height;
@@ -398,13 +366,11 @@ function startFaceDetection() {
         ).withFaceLandmarks(true);
 
         if (detections.length > 0) {
-          // Update lastDetection for animation
           lastDetection = faceapi.resizeResults(detections, displaySize);
           
           updateStatus('Face detected', 'success');
           faceDetected = true;
           
-          // Wait for face to stabilize before capturing
           if (faceDetected && !faceCaptured) {
             if (!window.captureTimeout) {
               window.captureTimeout = setTimeout(() => {
@@ -428,12 +394,10 @@ function startFaceDetection() {
         updateStatus('Detection error', 'error');
       }
     }
-  }, 100); // Run detection every 100ms for smoother tracking
+  }, 100); 
 }
 
-/**
- * Start timer for when no face is detected
- */
+//timer tanpa wajah
 function startNoFaceTimer() {
   noFaceTimeout = setTimeout(() => {
     if (!faceCaptured) {
@@ -447,25 +411,21 @@ function startNoFaceTimer() {
       showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
       updateStatus('Timed out waiting for face', 'error');
     }
-  }, 15000); // Increased to 15s to give users more time
+  }, 15000); 
 }
 
-/**
- * Capture face and verify
- */
+//verifikasi wajah
 async function captureAndVerify() {
   if (!faceDetected) {
     return false;
   }
 
   try {
-    // Temporarily pause detection while verifying
     if (faceDetectionInterval) {
       clearInterval(faceDetectionInterval);
       faceDetectionInterval = null;
     }
     
-    // Stop animation loop
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
@@ -473,7 +433,7 @@ async function captureAndVerify() {
     
     if (canvas && video) {
       const ctx = canvas.getContext('2d');
-      // Clear canvas and redraw video frame
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
@@ -486,7 +446,7 @@ async function captureAndVerify() {
         updateStatus('Face verification failed. Please try again.', 'error');
         showAlert('Verification Failed', 'Face verification failed. Please try again.', 'error', true);
         if (!faceDetectionInterval) {
-          startFaceDetection(); // Resume detection if verification fails
+          startFaceDetection(); // lanjutkan pendeteksian wajah jika verif gagal
         }
         return false;
       }
@@ -495,12 +455,12 @@ async function captureAndVerify() {
         updateStatus('Multiple faces detected. Please ensure only your face is visible.', 'error');
         showAlert('Multiple Faces', 'Multiple faces detected. Please ensure only your face is visible.', 'error', true);
         if (!faceDetectionInterval) {
-          startFaceDetection(); // Resume detection if verification fails
+          startFaceDetection(); // lanjutkan pendeteksian wajah jika verif gagal
         }
         return false;
       }
       
-      // Draw final verification overlay with a success animation
+      // verficiation overlay dengan pesan success
       const displaySize = { width: canvas.width, height: canvas.height };
       const resizedResults = faceapi.resizeResults(detections, displaySize);
       
@@ -668,9 +628,6 @@ function showAlert(title, message, type = 'info', showRetry = false) {
   alertModal.show();
 }
 
-/**
- * Retry face detection
- */
 function retryFaceDetection() {
   console.log('Retry face detection triggered');
   // Reset state
