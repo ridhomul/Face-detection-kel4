@@ -4,7 +4,10 @@ const faceStatus = document.getElementById('face-status');
 const loginForm = document.getElementById('login-form');
 const webcamContainer = document.querySelector('.webcam-container');
 const captureBtn = document.getElementById('capture-btn');
+const statusLabel = document.getElementById('status-label');
+const detectionStatus = document.getElementById('detection-status');
 
+// State variables
 let stream = null;
 let faceDetectionInterval = null;
 let modelsLoaded = false;
@@ -13,7 +16,10 @@ let faceCaptured = false;
 let noFaceTimeout = null;
 let verificationFailedTimeout = null;
 
-// Screen navigation function
+/**
+ * Screen navigation function
+ * @param {string} screenId - The ID of the screen to show
+ */
 function showScreen(screenId) {
     // Hide all screens
     document.querySelectorAll('.screen').forEach(screen => {
@@ -24,36 +30,75 @@ function showScreen(screenId) {
     document.getElementById(screenId).style.display = 'block';
     
     // Handle camera if showing face detection screens
-    if (screenId === 'face-detection-screen' || screenId === 'face-detection-success') {
+    if (screenId === 'face-detection-screen') {
         startWebcam();
-    } else {
+    } else if (screenId !== 'face-detection-success') {
         stopCamera();
     }
 }
 
-// Initialize the app
+/**
+ * Initialize the face detection system
+ */
 async function initialize() {
   try {
+    updateStatus('Loading face detection models...', 'loading');
     await loadModels();
     await startWebcam();
     startFaceDetection();
     startNoFaceTimer(); 
   } catch (error) {
     console.error('Initialization error:', error);
-    faceStatus.textContent = 'Error initializing: ' + error.message;
-    faceStatus.className = 'mt-2 text-center status-error';
+    updateStatus('Error initializing: ' + error.message, 'error');
     schedulePageRefresh();
   }
 }
 
-// Load face-api models
+/**
+ * Update the status display
+ * @param {string} message - Status message to display
+ * @param {string} type - Status type (loading, success, error)
+ */
+function updateStatus(message, type = 'loading') {
+  if (faceStatus) {
+    faceStatus.textContent = message;
+    
+    // Clear existing classes and add appropriate status class
+    faceStatus.className = 'mt-2 text-center';
+    if (type === 'error') {
+      faceStatus.classList.add('status-error');
+    } else if (type === 'success') {
+      faceStatus.classList.add('status-success');
+    }
+  }
+  
+  // Update Kelpo UI status indicators if they exist
+  if (statusLabel && detectionStatus) {
+    if (type === 'loading') {
+      statusLabel.className = 'status-label status-loading';
+      statusLabel.textContent = message;
+      detectionStatus.className = 'status-indicator status-red';
+    } else if (type === 'success') {
+      statusLabel.className = 'status-label status-success';
+      statusLabel.textContent = 'Successful';
+      detectionStatus.className = 'status-indicator status-green';
+    } else if (type === 'error') {
+      statusLabel.className = 'status-label status-error';
+      statusLabel.textContent = 'Failed';
+      detectionStatus.className = 'status-indicator status-red';
+    }
+  }
+}
+
+/**
+ * Load face-api models
+ */
 async function loadModels() {
-  faceStatus.textContent = 'Loading face detection models...';
   try {
     await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
     await faceapi.nets.faceLandmark68TinyNet.loadFromUri('/models');
     modelsLoaded = true;
-    faceStatus.textContent = 'Models loaded successfully';
+    updateStatus('Models loaded successfully', 'success');
     console.log('Face detection models loaded');
   } catch (error) {
     console.error('Error loading models:', error);
@@ -61,12 +106,12 @@ async function loadModels() {
   }
 }
 
-// Start webcam
+/**
+ * Start webcam
+ */
 async function startWebcam() {
   try {
-    if (faceStatus) {
-      faceStatus.textContent = 'Requesting camera access...';
-    }
+    updateStatus('Requesting camera access...', 'loading');
     
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -83,7 +128,7 @@ async function startWebcam() {
         videoElement.srcObject = stream;
       });
       
-      // Also set the main video element for face detection if it exists
+      // Set up main video element for face detection
       if (video) {
         video.srcObject = stream;
         await new Promise((resolve) => {
@@ -97,9 +142,7 @@ async function startWebcam() {
         }
       }
       
-      if (faceStatus) {
-        faceStatus.textContent = 'Camera ready. Waiting for face...';
-      }
+      updateStatus('Camera ready. Waiting for face...', 'loading');
       console.log('Webcam started successfully');
     }
   } catch (error) {
@@ -108,17 +151,22 @@ async function startWebcam() {
   }
 }
 
-// Stop camera function
+/**
+ * Stop camera
+ */
 function stopCamera() {
   if (stream) {
     stream.getTracks().forEach(track => {
       track.stop();
     });
     stream = null;
+    console.log('Camera stopped');
   }
 }
 
-// Start face detection
+/**
+ * Start face detection process
+ */
 function startFaceDetection() {
   if (!modelsLoaded) {
     console.error('Models not loaded');
@@ -156,19 +204,7 @@ function startFaceDetection() {
 
           faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
 
-          faceStatus.textContent = 'Face detected';
-          faceStatus.className = 'mt-2 text-center status-success';
-          
-          // Update status indicator for Kelpo UI
-          const statusIndicator = document.getElementById('detection-status');
-          const statusLabel = document.getElementById('status-label');
-          
-          if (statusIndicator && statusLabel) {
-            statusIndicator.className = 'status-indicator status-green';
-            statusLabel.className = 'status-label status-success';
-            statusLabel.textContent = 'Successful';
-          }
-          
+          updateStatus('Face detected', 'success');
           faceDetected = true;
           
           // Auto-capture the face after detection
@@ -177,20 +213,20 @@ function startFaceDetection() {
           }
         } else {
           canvas.classList.add('d-none');
-          faceStatus.textContent = 'No face detected';
-          faceStatus.className = 'mt-2 text-center status-error';
+          updateStatus('No face detected', 'error');
           faceDetected = false;
         }
       } catch (error) {
         console.error('Face detection error:', error);
-        faceStatus.textContent = 'Detection error';
-        faceStatus.className = 'mt-2 text-center status-error';
+        updateStatus('Detection error', 'error');
       }
     }
   }, 100);
 }
 
-// Timer for when no face is detected
+/**
+ * Start timer for when no face is detected
+ */
 function startNoFaceTimer() {
   noFaceTimeout = setTimeout(() => {
     if (!faceCaptured) {
@@ -198,18 +234,15 @@ function startNoFaceTimer() {
         clearInterval(faceDetectionInterval);
       }
       showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
-      
-      if (faceStatus) {
-        faceStatus.textContent = 'Timed out waiting for face';
-        faceStatus.className = 'mt-2 text-center status-error';
-      }
-      
+      updateStatus('Timed out waiting for face', 'error');
       schedulePageRefresh();
     }
-  }, 7000); 
+  }, 10000); // Increased from 7s to 10s for better user experience
 }
 
-// Capture face and verify
+/**
+ * Capture face and verify
+ */
 async function captureAndVerify() {
   if (!faceDetected) {
     return false;
@@ -226,16 +259,14 @@ async function captureAndVerify() {
       ).withFaceLandmarks(true);
   
       if (detections.length === 0) {
-        faceStatus.textContent = 'Face verification failed. Please try again.';
-        faceStatus.className = 'mt-2 text-center status-error';
+        updateStatus('Face verification failed. Please try again.', 'error');
         showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
         schedulePageRefresh();
         return false;
       }
   
       if (detections.length > 1) {
-        faceStatus.textContent = 'Multiple faces detected. Please ensure only your face is visible.';
-        faceStatus.className = 'mt-2 text-center status-error';
+        updateStatus('Multiple faces detected. Please ensure only your face is visible.', 'error');
         showAlert('Multiple Faces', 'Multiple faces detected. Page will refresh automatically.', 'error', false);
         schedulePageRefresh();
         return false;
@@ -246,38 +277,17 @@ async function captureAndVerify() {
     faceCaptured = true;
     clearTimeout(noFaceTimeout); 
     
-    // Stop face detection
+    // Stop face detection interval
     if (faceDetectionInterval) {
       clearInterval(faceDetectionInterval);
     }
     
-    if (faceStatus) {
-      faceStatus.textContent = 'Face detected successfully';
-      faceStatus.className = 'mt-2 text-center status-success';
-    }
+    updateStatus('Face detected successfully', 'success');
     
-    // Show success screen for Kelpo UI
-    if (document.getElementById('face-detection-screen')) {
-      setTimeout(() => {
-        showScreen('face-detection-success');
-        
-        // Auto-return to login after successful detection
-        setTimeout(() => {
-          showScreen('login-screen');
-        }, 3000);
-      }, 1500);
-    } else {
-      // For original UI - wait 3 seconds before hiding webcam
-      setTimeout(() => {
-        // Hide webcam container and show login form
-        if (webcamContainer) webcamContainer.style.display = 'none';
-        if (captureBtn) captureBtn.style.display = 'none';
-        if (loginForm) loginForm.classList.remove('d-none');
-        
-        // Stop webcam 
-        stopCamera();
-      }, 3000);
-    }
+    // Show success and transition to login
+    setTimeout(() => {
+      showScreen('login-screen');
+    }, 1500);
 
     return true;
   } catch (error) {
@@ -288,56 +298,18 @@ async function captureAndVerify() {
   }
 }
 
-// Face detection simulation for Kelpo UI
-function simulateFaceDetection() {
-  showScreen('face-detection-screen');
-  
-  // Simulate face detection process
-  setTimeout(() => {
-    const statusIndicator = document.getElementById('detection-status');
-    const statusLabel = document.getElementById('status-label');
-    
-    if (statusIndicator && statusLabel) {
-      // Update to success state
-      statusIndicator.className = 'status-indicator status-green';
-      statusLabel.className = 'status-label status-success';
-      statusLabel.textContent = 'Successful';
-      
-      // Show success screen after delay
-      setTimeout(() => {
-        showScreen('face-detection-success');
-        
-        // Auto-return to login after successful detection
-        setTimeout(() => {
-          showScreen('login-screen');
-        }, 3000);
-      }, 1500);
-    }
-  }, 3000);
-}
-
-// Auto refresh function
-function schedulePageRefresh() {
-  // Clear any existing timeouts first
-  if (verificationFailedTimeout) {
-    clearTimeout(verificationFailedTimeout);
-  }
-  
-  // Show message about refreshing page
-  if (faceStatus) {
-    faceStatus.textContent = 'Verification failed. Page will refresh automatically...';
-    faceStatus.className = 'mt-2 text-center status-error';
-  }
-  
-  verificationFailedTimeout = setTimeout(() => {
-    console.log('Auto-refreshing page due to face verification failure');
-    window.location.reload();
-  }, 3000);
-}
-
-// Show alert function
+/**
+ * Show alert modal
+ * @param {string} title - Alert title
+ * @param {string} message - Alert message
+ * @param {string} type - Alert type (success, error, info)
+ * @param {boolean} showRetry - Whether to show retry button
+ */
 function showAlert(title, message, type = 'info', showRetry = false) {
-  const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+  const alertModalElement = document.getElementById('alertModal');
+  if (!alertModalElement) return;
+  
+  const alertModal = new bootstrap.Modal(alertModalElement);
   document.getElementById('alertModalTitle').textContent = title;
   document.getElementById('modal-message').textContent = message;
   
@@ -383,7 +355,27 @@ function showAlert(title, message, type = 'info', showRetry = false) {
   alertModal.show();
 }
 
-// Retry face detection
+/**
+ * Schedule page refresh after failure
+ */
+function schedulePageRefresh() {
+  // Clear any existing timeouts first
+  if (verificationFailedTimeout) {
+    clearTimeout(verificationFailedTimeout);
+  }
+  
+  // Show message about refreshing page
+  updateStatus('Verification failed. Page will refresh automatically...', 'error');
+  
+  verificationFailedTimeout = setTimeout(() => {
+    console.log('Auto-refreshing page due to face verification failure');
+    window.location.reload();
+  }, 5000); // Increased from 3s to 5s to give users more time to read the message
+}
+
+/**
+ * Retry face detection
+ */
 function retryFaceDetection() {
   console.log('Retry face detection triggered');
   // Reset state
@@ -402,12 +394,12 @@ function retryFaceDetection() {
   
   stopCamera();
   
-  // Make sure webcam container is visible
+  // Make sure webcam elements are visible
   if (webcamContainer) webcamContainer.style.display = '';
   if (captureBtn) captureBtn.style.display = '';
   if (loginForm) loginForm.classList.add('d-none');
   
-  // Restart 
+  // Restart initialization
   initialize();
 }
 
@@ -425,53 +417,43 @@ window.addEventListener('beforeunload', () => {
   stopCamera();
 });
 
-// Export functions for use in other scripts if needed
+// Export functions for use in other scripts
 window.faceDetection = {
   initialize,
   retryFaceDetection,
   showAlert,
-  simulateFaceDetection,
   showScreen
 };
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  // Check if we're using Kelpo UI or original UI
-  const isKelpoUI = document.getElementById('face-detection-screen') !== null;
-  
-  if (isKelpoUI) {
-    // Set up login button for Kelpo UI
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-      loginBtn.addEventListener('click', function() {
-        simulateFaceDetection();
-      });
-    }
-    
-    // Set up register button for Kelpo UI
-    const registerBtn = document.getElementById('register-btn');
-    if (registerBtn) {
-      registerBtn.addEventListener('click', function() {
-        simulateFaceDetection();
-      });
-    }
-    
-    // Set up navigation arrows for Kelpo UI
-    const nextArrow = document.getElementById('next-arrow');
-    if (nextArrow) {
-      nextArrow.addEventListener('click', function() {
-        showScreen('face-detection-success');
-      });
-    }
-    
-    const finalArrow = document.getElementById('final-arrow');
-    if (finalArrow) {
-      finalArrow.addEventListener('click', function() {
+  // Set up navigation controls for the app
+  const nextArrow = document.getElementById('next-arrow');
+  if (nextArrow) {
+    nextArrow.addEventListener('click', function() {
+      if (faceDetected) {
         showScreen('login-screen');
-      });
-    }
-  } else {
-    // Initialize original face detection
-    initialize();
+      } else {
+        showAlert('Face Not Detected', 'Please position your face in the camera before proceeding.', 'error', false);
+      }
+    });
   }
+  
+  // Set up toggle between login and register
+  const toggleRegister = document.getElementById('toggle-register');
+  if (toggleRegister) {
+    toggleRegister.addEventListener('click', function() {
+      showScreen('register-screen');
+    });
+  }
+  
+  const toggleLogin = document.getElementById('toggle-login');
+  if (toggleLogin) {
+    toggleLogin.addEventListener('click', function() {
+      showScreen('login-screen');
+    });
+  }
+  
+  // Initialize face detection
+  initialize();
 });
