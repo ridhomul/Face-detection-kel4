@@ -6,15 +6,32 @@ document.addEventListener("DOMContentLoaded", function () {
     return;
   }
 
-  // Initialize Bootstrap Modal
-  const alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+  // Bootstrap Modal initialization
+  let alertModal;
+  const alertModalElement = document.getElementById('alertModal');
+  if (alertModalElement) {
+    alertModal = new bootstrap.Modal(alertModalElement);
+  } else {
+    console.error("Alert modal element not found in the DOM");
+    // Create a modal element if it doesn't exist
+    createAlertModal();
+    alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+  }
   
   // Show alert function
   function showAlert(title, message, type = 'info') {
-    document.getElementById('alertModalTitle').textContent = title;
-    document.getElementById('modal-message').textContent = message;
-    
+    const modalTitle = document.getElementById('alertModalTitle');
+    const modalMessage = document.getElementById('modal-message');
     const iconElement = document.getElementById('modal-icon');
+    
+    if (!modalTitle || !modalMessage || !iconElement) {
+      console.error("Modal elements not found");
+      return;
+    }
+    
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    
     let iconHTML = '';
     
     if (type === 'success') {
@@ -39,86 +56,159 @@ document.addEventListener("DOMContentLoaded", function () {
     alertModal.show();
   }
 
-  // Load user info
-  fetch("/api/auth/user", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error("Not authorized");
-      }
-      return response.json();
-    })
-    .then((data) => {
-      if (data.success) {
-        document.getElementById(
-          "username-display"
-        ).textContent = `Welcome, ${data.user.name}`;
-        document.getElementById("user-name").textContent = data.user.name;
-        document.getElementById("user-email").textContent = data.user.email;
-        document.getElementById("user-username").textContent = data.user.username;
-      }
-    })
-    .catch((error) => {
-      console.error("Error fetching user data:", error);
-      showAlert("Authentication Error", "Your session has expired. Please log in again.", "error");
-      setTimeout(() => {
-        localStorage.removeItem("token");
-        window.location.href = "/";
-      }, 2000);
-    });
+  function createAlertModal() {
+    const modalHTML = `
+      <div class="modal fade" id="alertModal" tabindex="-1" aria-labelledby="alertModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="alertModalTitle">Alert</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+              <div id="modal-icon" class="mb-4"></div>
+              <p id="modal-message">Alert message</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button type="button" id="retry-face-detection" class="btn btn-primary d-none">Try Again</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Append modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  }
 
-  // Load login history
-  fetch("/api/auth/history", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.success) {
+  // Load user info with error handling
+  loadUserInfo();
+  function loadUserInfo() {
+    fetch("/api/auth/user", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
+        if (data.success) {
+          const usernameDisplay = document.getElementById("username-display");
+          const userName = document.getElementById("user-name");
+          const userEmail = document.getElementById("user-email");
+          const userUsername = document.getElementById("user-username");
+          
+          if (usernameDisplay) usernameDisplay.textContent = `Welcome, ${data.user.name}`;
+          if (userName) userName.textContent = data.user.name;
+          if (userEmail) userEmail.textContent = data.user.email;
+          if (userUsername) userUsername.textContent = data.user.username;
+          
+          console.log("User info loaded successfully");
+        } else {
+          throw new Error(data.message || "Failed to load user information");
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching user data:", error);
+        showAlert("Authentication Error", "Your session has expired. Please log in again.", "error");
+        setTimeout(() => {
+          localStorage.removeItem("token");
+          window.location.href = "/";
+        }, 2000);
+      });
+  }
+
+  // Load login history with improved error handling
+  loadLoginHistory();
+  function loadLoginHistory() {
+    fetch("/api/auth/history", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((data) => {
         const historyTable = document.getElementById("login-history");
-
-        if (data.history.length === 0) {
-          historyTable.innerHTML = `<tr><td colspan="4" class="text-center">No login history available</td></tr>`;
+        if (!historyTable) {
+          console.error("Login history table element not found");
           return;
         }
 
-        historyTable.innerHTML = "";
+        if (data.success) {
+          if (data.history.length === 0) {
+            historyTable.innerHTML = `<tr><td colspan="4" class="text-center">No login history available</td></tr>`;
+            return;
+          }
 
-        data.history.forEach((entry) => {
-          const date = new Date(entry.timestamp).toLocaleString();
-          const status = entry.success
-            ? '<span class="badge bg-success">Success</span>'
-            : '<span class="badge bg-danger">Failed</span>';
-          const faceStatus = entry.faceDetected
-            ? '<span class="badge bg-success">Yes</span>'
-            : '<span class="badge bg-danger">No</span>';
+          historyTable.innerHTML = "";
 
-          historyTable.innerHTML += `
-          <tr>
-            <td>${date}</td>
-            <td>${status}</td>
-            <td>${faceStatus}</td>
-            <td>${entry.userAgent ? entry.userAgent.substring(0, 50) + "..." : "N/A"}</td>
-          </tr>
-        `;
-        });
-      }
-    })
-    .catch((error) => {
-      console.error("Error fetching login history:", error);
-      document.getElementById("login-history").innerHTML = 
-        `<tr><td colspan="4" class="text-center text-danger">Error loading login history</td></tr>`;
-      showAlert("Data Loading Error", "There was a problem loading your login history.", "error");
+          data.history.forEach((entry) => {
+            const date = new Date(entry.timestamp).toLocaleString();
+            const status = entry.success
+              ? '<span class="badge bg-success">Success</span>'
+              : '<span class="badge bg-danger">Failed</span>';
+            const faceStatus = entry.faceDetected
+              ? '<span class="badge bg-success">Yes</span>'
+              : '<span class="badge bg-danger">No</span>';
+
+            historyTable.innerHTML += `
+            <tr>
+              <td>${date}</td>
+              <td>${status}</td>
+              <td>${faceStatus}</td>
+              <td>${entry.userAgent ? entry.userAgent.substring(0, 50) + "..." : "N/A"}</td>
+            </tr>
+          `;
+          });
+          
+          console.log("Login history loaded successfully");
+        } else {
+          throw new Error(data.message || "Failed to load login history");
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching login history:", error);
+        const historyTable = document.getElementById("login-history");
+        if (historyTable) {
+          historyTable.innerHTML = 
+            `<tr><td colspan="4" class="text-center text-danger">Error loading login history</td></tr>`;
+        }
+        showAlert("Data Loading Error", "There was a problem loading your login history.", "error");
+      });
+  }
+
+  // Fix logout functionality
+  const logoutBtn = document.getElementById("logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      console.log("Logout button clicked");
+      
+      // Add visual feedback
+      logoutBtn.textContent = "Logging out...";
+      logoutBtn.classList.add("disabled");
+      
+      // Perform logout
+      localStorage.removeItem("token");
+      
+      // Show successful logout message
+      showAlert("Logout Successful", "You have been logged out successfully.", "success");
+      
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 1500);
     });
-
-  // Logout functionality
-  document.getElementById("logout-btn").addEventListener("click", function (e) {
-    e.preventDefault();
-    localStorage.removeItem("token");
-    window.location.href = "/";
-  });
+  } else {
+    console.error("Logout button not found");
+  }
 });
