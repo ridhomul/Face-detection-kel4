@@ -1,3 +1,5 @@
+// Modified face-detection.js with lively landmark and box drawing
+
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const faceStatus = document.getElementById('face-status');
@@ -14,6 +16,9 @@ let modelsLoaded = false;
 let faceDetected = false;
 let faceCaptured = false;
 let noFaceTimeout = null;
+let lastDetection = null; // Store last detection for animation
+let animationFrameId = null; // For animation frame
+let confidenceThreshold = 0.5; // Detection confidence threshold
 
 /**
  * Screen navigation function
@@ -44,6 +49,12 @@ async function initialize() {
     updateStatus('Loading face detection models...', 'loading');
     await loadModels();
     await startWebcam();
+    
+    // Make canvas visible immediately
+    if (canvas) {
+      canvas.classList.remove('d-none');
+    }
+    
     startFaceDetection();
     startNoFaceTimer(); 
   } catch (error) {
@@ -70,20 +81,40 @@ function updateStatus(message, type = 'loading') {
     }
   }
   
-  // Update Kelpo UI status indicators if they exist
+  // Update status indicators if they exist with smooth transitions
   if (statusLabel && detectionStatus) {
     if (type === 'loading') {
       statusLabel.className = 'status-label status-loading';
       statusLabel.textContent = message;
       detectionStatus.className = 'status-indicator status-red';
+      
+      // Add pulsing animation to loading dots
+      const dots = detectionStatus.querySelectorAll('.status-dot');
+      dots.forEach((dot, index) => {
+        dot.style.animation = `pulse 1.5s infinite ${index * 0.3}s`;
+      });
+      
     } else if (type === 'success') {
-      statusLabel.className = 'status-label status-success';
+      statusLabel.className = 'status-label status-success animate__animated animate__fadeIn';
       statusLabel.textContent = 'Successful';
-      detectionStatus.className = 'status-indicator status-green';
+      detectionStatus.className = 'status-indicator status-green animate__animated animate__bounceIn';
+      
+      // Remove pulsing animation
+      const dots = detectionStatus.querySelectorAll('.status-dot');
+      dots.forEach(dot => {
+        dot.style.animation = '';
+      });
+      
     } else if (type === 'error') {
-      statusLabel.className = 'status-label status-error';
+      statusLabel.className = 'status-label status-error animate__animated animate__fadeIn';
       statusLabel.textContent = 'Failed';
-      detectionStatus.className = 'status-indicator status-red';
+      detectionStatus.className = 'status-indicator status-red animate__animated animate__shakeX';
+      
+      // Remove pulsing animation
+      const dots = detectionStatus.querySelectorAll('.status-dot');
+      dots.forEach(dot => {
+        dot.style.animation = '';
+      });
     }
   }
 }
@@ -137,6 +168,10 @@ async function startWebcam() {
         if (canvas) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
+          // Position canvas over the video with absolute positioning
+          canvas.style.position = 'absolute';
+          canvas.style.top = '0';
+          canvas.style.left = '0';
         }
       }
       
@@ -160,6 +195,170 @@ function stopCamera() {
     stream = null;
     console.log('Camera stopped');
   }
+  
+  // Also stop animation if running
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+}
+
+/**
+ * Animate face detection markers
+ * This is our new function for fluid animation
+ */
+function animateDetection() {
+  if (!video || video.paused || video.ended || faceCaptured || !canvas) {
+    return;
+  }
+  
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  if (lastDetection && lastDetection.length > 0) {
+    // Draw detection boxes with a slight pulse effect
+    const pulseScale = 1 + 0.05 * Math.sin(Date.now() / 200); // Subtle pulsing effect
+    
+    lastDetection.forEach(result => {
+      const { x, y, width, height } = result.detection.box;
+      
+      // Calculate center of the box for pulsing effect
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+      
+      // Draw box with pulse effect
+      ctx.strokeStyle = '#4CAF84'; // Use teal from our color palette
+      ctx.lineWidth = 3;
+      
+      // Draw the pulsing box
+      ctx.beginPath();
+      const pulseWidth = width * pulseScale;
+      const pulseHeight = height * pulseScale;
+      ctx.rect(centerX - pulseWidth/2, centerY - pulseHeight/2, pulseWidth, pulseHeight);
+      ctx.stroke();
+      
+      // Draw the actual box
+      ctx.strokeStyle = '#00ff00';
+      ctx.beginPath();
+      ctx.rect(x, y, width, height);
+      ctx.stroke();
+      
+      // Draw corners for a more tech-like feel
+      const cornerLength = Math.min(width, height) * 0.2;
+      ctx.strokeStyle = '#f5994e'; // Use orange from our color palette
+      ctx.lineWidth = 4;
+      
+      // Top-left corner
+      ctx.beginPath();
+      ctx.moveTo(x, y + cornerLength);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + cornerLength, y);
+      ctx.stroke();
+      
+      // Top-right corner
+      ctx.beginPath();
+      ctx.moveTo(x + width - cornerLength, y);
+      ctx.lineTo(x + width, y);
+      ctx.lineTo(x + width, y + cornerLength);
+      ctx.stroke();
+      
+      // Bottom-left corner
+      ctx.beginPath();
+      ctx.moveTo(x, y + height - cornerLength);
+      ctx.lineTo(x, y + height);
+      ctx.lineTo(x + cornerLength, y + height);
+      ctx.stroke();
+      
+      // Bottom-right corner
+      ctx.beginPath();
+      ctx.moveTo(x + width - cornerLength, y + height);
+      ctx.lineTo(x + width, y + height);
+      ctx.lineTo(x + width, y + height - cornerLength);
+      ctx.stroke();
+    });
+    
+    // Draw face landmarks with a smooth animation
+    if (lastDetection[0] && lastDetection[0].landmarks) {
+      const landmarks = lastDetection[0].landmarks;
+      
+      // Draw face contour with animated effect
+      ctx.strokeStyle = 'rgba(100, 255, 100, 0.7)';
+      ctx.lineWidth = 2;
+      
+      // Draw jawline
+      const jawPoints = landmarks.getJawOutline();
+      ctx.beginPath();
+      jawPoints.forEach((point, index) => {
+        const jitter = Math.sin(Date.now() / 500 + index) * 1; // Subtle movement
+        if (index === 0) {
+          ctx.moveTo(point.x + jitter, point.y + jitter);
+        } else {
+          ctx.lineTo(point.x + jitter, point.y + jitter);
+        }
+      });
+      ctx.stroke();
+      
+      // Draw eyes
+      const leftEye = landmarks.getLeftEye();
+      const rightEye = landmarks.getRightEye();
+      
+      [leftEye, rightEye].forEach(eye => {
+        ctx.beginPath();
+        eye.forEach((point, index) => {
+          const jitter = Math.sin(Date.now() / 400 + index) * 0.8;
+          if (index === 0) {
+            ctx.moveTo(point.x + jitter, point.y + jitter);
+          } else {
+            ctx.lineTo(point.x + jitter, point.y + jitter);
+          }
+        });
+        ctx.closePath();
+        ctx.stroke();
+        
+        // Draw eye centers with pulsing effect
+        const eyeCenterX = eye.reduce((sum, point) => sum + point.x, 0) / eye.length;
+        const eyeCenterY = eye.reduce((sum, point) => sum + point.y, 0) / eye.length;
+        
+        const pulseFactor = 1 + 0.3 * Math.sin(Date.now() / 300);
+        ctx.fillStyle = 'rgba(220, 234, 163, 0.7)'; // lime green with transparency
+        ctx.beginPath();
+        ctx.arc(eyeCenterX, eyeCenterY, 3 * pulseFactor, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      
+      // Draw nose
+      const nose = landmarks.getNose();
+      ctx.strokeStyle = 'rgba(76, 175, 132, 0.7)'; // teal with transparency
+      ctx.beginPath();
+      nose.forEach((point, index) => {
+        const jitter = Math.sin(Date.now() / 450 + index) * 0.5;
+        if (index === 0) {
+          ctx.moveTo(point.x + jitter, point.y + jitter);
+        } else {
+          ctx.lineTo(point.x + jitter, point.y + jitter);
+        }
+      });
+      ctx.stroke();
+      
+      // Draw mouth
+      const mouth = landmarks.getMouth();
+      ctx.strokeStyle = 'rgba(245, 153, 78, 0.7)'; // orange with transparency
+      ctx.beginPath();
+      mouth.forEach((point, index) => {
+        const jitter = Math.sin(Date.now() / 500 + index) * 0.7;
+        if (index === 0) {
+          ctx.moveTo(point.x + jitter, point.y + jitter);
+        } else {
+          ctx.lineTo(point.x + jitter, point.y + jitter);
+        }
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+  }
+  
+  // Continue animation
+  animationFrameId = requestAnimationFrame(animateDetection);
 }
 
 /**
@@ -176,6 +375,9 @@ function startFaceDetection() {
     clearInterval(faceDetectionInterval);
     faceDetectionInterval = null;
   }
+  
+  // Start animation loop
+  animateDetection();
 
   console.log('Starting face detection loop');
   faceDetectionInterval = setInterval(async () => {
@@ -192,39 +394,17 @@ function startFaceDetection() {
         
         const detections = await faceapi.detectAllFaces(
           video,
-          new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
+          new faceapi.TinyFaceDetectorOptions({ scoreThreshold: confidenceThreshold })
         ).withFaceLandmarks(true);
 
-        const ctx = canvas.getContext('2d');
-        // Clear canvas before drawing new frame
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // First draw video frame to canvas to ensure proper alignment
-        // Only needed if we want to "freeze" the frame in the canvas
-        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
         if (detections.length > 0) {
-          canvas.classList.remove('d-none');
+          // Update lastDetection for animation
+          lastDetection = faceapi.resizeResults(detections, displaySize);
           
-          // Ensure proper size matching between video and canvas
-          const resizedResults = faceapi.resizeResults(detections, displaySize);
-
-          // Draw face detection boxes
-          resizedResults.forEach(result => {
-            const { x, y, width, height } = result.detection.box;
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x, y, width, height);
-          });
-
-          // Draw face landmarks (dots and lines for eyes, nose, mouth, etc.)
-          faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
-
           updateStatus('Face detected', 'success');
           faceDetected = true;
           
-          // Don't auto-capture immediately - wait for user to stabilize
-          // Add a small delay to avoid constant capturing attempts
+          // Wait for face to stabilize before capturing
           if (faceDetected && !faceCaptured) {
             if (!window.captureTimeout) {
               window.captureTimeout = setTimeout(() => {
@@ -238,7 +418,8 @@ function startFaceDetection() {
             clearTimeout(window.captureTimeout);
             window.captureTimeout = null;
           }
-          // Just clear the box and landmarks when no face is detected
+          
+          lastDetection = null; // Clear last detection when no face detected
           updateStatus('No face detected', 'error');
           faceDetected = false;
         }
@@ -258,6 +439,10 @@ function startNoFaceTimer() {
     if (!faceCaptured) {
       if (faceDetectionInterval) {
         clearInterval(faceDetectionInterval);
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
       }
       showAlert('Face Detection Failed', 'No face detected. Please try again.', 'error', true);
       updateStatus('Timed out waiting for face', 'error');
@@ -280,6 +465,12 @@ async function captureAndVerify() {
       faceDetectionInterval = null;
     }
     
+    // Stop animation loop
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+    
     if (canvas && video) {
       const ctx = canvas.getContext('2d');
       // Clear canvas and redraw video frame
@@ -288,7 +479,7 @@ async function captureAndVerify() {
   
       const detections = await faceapi.detectAllFaces(
         canvas,
-        new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
+        new faceapi.TinyFaceDetectorOptions({ scoreThreshold: confidenceThreshold })
       ).withFaceLandmarks(true);
   
       if (detections.length === 0) {
@@ -309,18 +500,63 @@ async function captureAndVerify() {
         return false;
       }
       
-      // Redraw detection overlay for captured image
+      // Draw final verification overlay with a success animation
       const displaySize = { width: canvas.width, height: canvas.height };
       const resizedResults = faceapi.resizeResults(detections, displaySize);
       
-      // Draw detection box
+      // Draw a "success" animation
       const { x, y, width, height } = resizedResults[0].detection.box;
-      ctx.strokeStyle = '#00ff00';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x, y, width, height);
+      const successAnimation = async () => {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Draw expanding circle
+        for (let i = 0; i < 20; i++) {
+          await new Promise(resolve => setTimeout(resolve, 20));
+          
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          const centerX = x + width / 2;
+          const centerY = y + height / 2;
+          const radius = Math.min(width, height) * (i / 15);
+          
+          ctx.strokeStyle = `rgba(76, 175, 132, ${1 - i/20})`; // Fade out as it expands
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        
+        // Draw final success box
+        ctx.strokeStyle = '#4CAF84'; // teal
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Draw landmarks for final result
+        ctx.strokeStyle = '#dceaa3'; // lime green
+        ctx.lineWidth = 2;
+        faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
+        
+        // Draw checkmark
+        ctx.strokeStyle = '#4CAF84';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        const checkSize = Math.min(width, height) * 0.3;
+        const checkX = x + width / 2;
+        const checkY = y + height / 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(checkX - checkSize/2, checkY);
+        ctx.lineTo(checkX - checkSize/6, checkY + checkSize/2);
+        ctx.lineTo(checkX + checkSize/2, checkY - checkSize/3);
+        ctx.stroke();
+      };
       
-      // Draw landmarks
-      faceapi.draw.drawFaceLandmarks(canvas, resizedResults);
+      await successAnimation();
     }
 
     // Successfully captured face
@@ -416,6 +652,12 @@ function showAlert(title, message, type = 'info', showRetry = false) {
     clearInterval(faceDetectionInterval);
   }
   
+  // Pause animation while modal is shown
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+  
   // Resume detection when modal is hidden
   alertModalElement.addEventListener('hidden.bs.modal', function() {
     if (!faceCaptured) {
@@ -434,6 +676,7 @@ function retryFaceDetection() {
   // Reset state
   faceCaptured = false;
   faceDetected = false;
+  lastDetection = null;
   
   if (faceDetectionInterval) {
     clearInterval(faceDetectionInterval);
@@ -446,6 +689,10 @@ function retryFaceDetection() {
   if (window.captureTimeout) {
     clearTimeout(window.captureTimeout);
     window.captureTimeout = null;
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
   }
   
   stopCamera();
@@ -477,6 +724,10 @@ window.addEventListener('beforeunload', () => {
   }
   if (window.captureTimeout) {
     clearTimeout(window.captureTimeout);
+  }
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
   }
   stopCamera();
 });
