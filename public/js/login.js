@@ -6,7 +6,7 @@ const toggleLoginLink = document.getElementById('toggle-login');
 const loginFormContainer = document.getElementById('login-form');
 const registerFormContainer = document.getElementById('register-form');
 
-// Check if user is already logged in
+// apakah user sudah login?
 document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -14,33 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Toggle between login and register forms
+// peralihan antara form login dan register
 function toggleForms() {
-  // Check if we're using Kelpo UI
-  if (document.getElementById('login-screen')) {
-    const loginScreen = document.getElementById('login-screen');
-    const registerScreen = document.getElementById('register-screen');
-    
-    if (loginScreen.style.display !== 'none') {
-      loginScreen.style.display = 'none';
-      registerScreen.style.display = 'block';
-    } else {
-      loginScreen.style.display = 'block';
-      registerScreen.style.display = 'none';
-    }
+  if (loginFormContainer.classList.contains('d-none')) {
+    loginFormContainer.classList.remove('d-none');
+    registerFormContainer.classList.add('d-none');
   } else {
-    // Original UI toggle logic
-    if (loginFormContainer.classList.contains('d-none')) {
-      loginFormContainer.classList.remove('d-none');
-      registerFormContainer.classList.add('d-none');
-    } else {
-      loginFormContainer.classList.add('d-none');
-      registerFormContainer.classList.remove('d-none');
-    }
+    loginFormContainer.classList.add('d-none');
+    registerFormContainer.classList.remove('d-none');
   }
 }
 
-// Handle login function
+// fungsi untuk menangani login
 async function loginUser(username, password) {
   try {
     const response = await fetch('/api/auth/login', {
@@ -61,7 +46,7 @@ async function loginUser(username, password) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // Redirect to dashboard
+      // mengarahkan ke dashboard
       window.location.href = '/dashboard';
     } else {
       showAlert('Login Failed', data.message || 'Invalid credentials');
@@ -72,7 +57,7 @@ async function loginUser(username, password) {
   }
 }
 
-// Handle registration function
+// fungsi untuk menangani registrasi
 async function registerUser(userData) {
   try {
     const response = await fetch('/api/auth/register', {
@@ -89,7 +74,7 @@ async function registerUser(userData) {
       // Store token
       localStorage.setItem('token', data.token);
       
-      // Redirect to dashboard
+      // mengarahkan ke dashboard
       window.location.href = '/dashboard';
     } else {
       showAlert('Registration Failed', data.message || 'Failed to create account');
