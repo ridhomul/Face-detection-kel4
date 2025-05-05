@@ -85,7 +85,7 @@ function startFaceDetection() {
       try {
         const detections = await faceapi.detectAllFaces(
           video,
-          new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 })
+          new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.3 })
         ).withFaceLandmarks(true);
 
         const ctx = canvas.getContext('2d');
@@ -118,7 +118,7 @@ function startFaceDetection() {
         } else {
           canvas.classList.add('d-none');
           faceStatus.textContent = 'No face detected';
-          faceStatus.className = 'mt-2 text-center status-error';
+          faceStatus.className = 'mt-2 text-center status-error'; 
           faceDetected = false;
         }
       } catch (error) {
@@ -142,7 +142,7 @@ function startNoFaceTimer() {
       faceStatus.className = 'mt-2 text-center status-error';
       schedulePageRefresh();
     }
-  }, 7000); 
+  }, 10000); 
 }
 
 // snapshot wajah dan verifikasi
@@ -163,7 +163,7 @@ async function captureAndVerify() {
     if (detections.length === 0) {
       faceStatus.textContent = 'Face verification failed. Please try again.';
       faceStatus.className = 'mt-2 text-center status-error';
-      showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
+      // showAlert('Verification Failed', 'Face verification failed. Page will refresh automatically.', 'error', false);
       schedulePageRefresh();
       return false;
     }
@@ -192,6 +192,22 @@ async function captureAndVerify() {
     setTimeout(() => {
       // Hide webcam container dan menampilkan form login
       webcamContainer.style.display = 'none';
+      
+      // Juga sembunyikan elemen status wajah dan petunjuk posisi
+      faceStatus.style.display = 'none';
+      
+      // Sembunyikan div yang berisi instruksi posisi wajah
+      const positionInstructionContainer = document.querySelector('.webcam-container + .text-center');
+      if (positionInstructionContainer) {
+        positionInstructionContainer.style.display = 'none';
+      }
+      
+      // Mencari dengan selector yang lebih spesifik untuk instruksi posisi wajah
+      const positionInstruction = document.querySelector('.text-center.mt-2 small.text-muted');
+      if (positionInstruction) {
+        positionInstruction.parentElement.style.display = 'none';
+      }
+      
       if (captureBtn) captureBtn.style.display = 'none';
       loginForm.classList.remove('d-none');
       // Stop webcam 
@@ -276,7 +292,7 @@ function showAlert(title, message, type = 'info', showRetry = false) {
   alertModal.show();
 }
 
-// mengulang proses deteksi wajah
+// mengulang proses deteksi wajah 
 function retryFaceDetection() {
   console.log('Retry face detection triggered');
   // Reset state
